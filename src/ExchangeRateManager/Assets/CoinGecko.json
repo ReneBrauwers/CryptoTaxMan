@@ -1,0 +1,157 @@
+[
+  {
+    "Kind": "crypto",
+    "Symbol": "cummies",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "cumrocket",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dent",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "dent",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hai",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "hackenai",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "jur",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "jur",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "key",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "key",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "lend",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "ethlend",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "oce",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "oceanex",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pla",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "plair",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pswap",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "polkaswap",
+    "ExchangeCurrency": "aud"
+  },
+
+  {
+    "Kind": "crypto",
+    "Symbol": "sha",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "safe-haven",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "tel",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "telcoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xor",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "sora",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pornrocket",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "pornrocket",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xpr",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "proton",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xcur",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "curate",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "catgirl",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "catgirl",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "grimex",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "spacegrime",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "x2",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "x2",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sharpei",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "shar-pei",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "next",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "shopnext",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hec",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "hector-dao",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "busd",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "binance-usd",
+    "ExchangeCurrency": "aud"
+  }
+]

@@ -1,0 +1,164 @@
+[
+  {
+    "Kind": "crypto",
+    "Symbol": "bnb",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "bnb",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "bcn",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "bcn",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "btc",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "btc",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dash",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "dash",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dcn",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "dcn",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "eth",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "eth",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hot",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "hot1",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "matic",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "matic",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "miota",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "miota",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pay",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "pay",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "rvn",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "rvn",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sc",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "sc",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "usdt",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "usdt",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "vet",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "vet",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "vtho",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "vtho",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xlm",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "xlm",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xrp",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "xrp",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dai",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "dai",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "fantom",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "ftm",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "fiat",
+    "Symbol": "aud",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "aud",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "fiat",
+    "Symbol": "eur",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "eur",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "fiat",
+    "Symbol": "usd",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "usd",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "stock",
+    "Symbol": "moq",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "moq.ax",
+    "ExchangeCurrency": "aud"
+  }
+
+]

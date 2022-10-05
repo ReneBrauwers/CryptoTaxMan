@@ -41,9 +41,7 @@ List<ExchangeInformation> exchangeInformation = new List<ExchangeInformation>();
 
 foreach (var cryptoConfigFile in Directory.GetFiles(Path.Combine(Environment.CurrentDirectory,"Assets"),"*.json"))
 {
-    if(cryptoConfigFile.Contains("CRYPTO"))
-    {
-       
+      
         using (var ms = new MemoryStream(File.ReadAllBytes(cryptoConfigFile)))
         {
             var result = await System.Text.Json.JsonSerializer.DeserializeAsync<List<ExchangeInformation>>(ms);
@@ -51,11 +49,8 @@ foreach (var cryptoConfigFile in Directory.GetFiles(Path.Combine(Environment.Cur
             {
                 exchangeInformation.AddRange(result);
             }
-        
-
         }
-    }
-   
+
 
 }
 var datefromstring = "20200101";
@@ -64,30 +59,29 @@ DateTime.TryParseExact(datefromstring, formats, System.Globalization.CultureInfo
 
 List<ExchangeRate> rawResponses = new List<ExchangeRate>();
 List<ExchangeInformation> exchangeInformationRetrieveFailures = new List<ExchangeInformation>();
-//List<string> downloadedConfigList = new List<string>();
+
 var configDirectory = config["exchangeConfigStoreLocation"];
 DirectoryInfo dirInfo = new DirectoryInfo(configDirectory);
-//downloadedConfigList.AddRange(dirInfo.GetFiles("*.json"); //.Select(x=>x.Replace(configDirectory, "")));
+
 foreach (var exchangeGroup in exchangeInformation.GroupBy(x=>x.ExchangeName))
 {
 
 
-    var existingFiles = dirInfo.GetFiles("*.json").Select(x => x.Name);
-    var excludedExchangeInfo = exchangeGroup.Where(x => existingFiles.Contains(string.Concat(x.ExchangeName.ToLower(), "_", x.ExchangeSymbol, "_", x.ExchangeCurrency,".json")));
+    var existingFiles = dirInfo.GetFiles("*.json",SearchOption.AllDirectories).Select(x => x.Name);
+    //var excludedExchangeInfo = exchangeGroup.Where(x => existingFiles.Contains(string.Concat(x.ExchangeName.ToLower(), "_", x.ExchangeSymbol, "_", x.ExchangeCurrency,".json")));
     foreach (var exchangeInfo in exchangeGroup)//.Except(excludedExchangeInfo))
     {
 
         Console.WriteLine($"Getting exchange rates for {exchangeInfo.ExchangeSymbol}");
-        var fNameRawResponses = $"{exchangeInfo.ExchangeName?.ToLower()}_{exchangeInfo.ExchangeSymbol}_{exchangeInfo.ExchangeCurrency}.json";
+       
         switch (exchangeInfo.ExchangeName?.ToLower())
         {
-            case "coingeckos":
+            case "coingecko":
                 {
                     var response = await _coinGeckoClient.GetCryptoDataRange(exchangeInfo, datefrom);
                     if (response is not null && response.Count() > 0)
                     {
-                       // var fNameRawResponses = $"{exchangeInfo.ExchangeName?.ToLower()}_{exchangeInfo.ExchangeSymbol}_{exchangeInfo.ExchangeCurrency}.json";
-                       // File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "Assets", fNameRawResponses), System.Text.Json.JsonSerializer.Serialize(response));
+
                         rawResponses.AddRange(response);
                     }
                     else
@@ -100,10 +94,15 @@ foreach (var exchangeGroup in exchangeInformation.GroupBy(x=>x.ExchangeName))
                 }
             case "yahoofinance":
                 {
-                    var response = await _yahooClient.GetFinancialDataRange(exchangeInfo, new DateTime(2015, 1, 1));
+                    if(exchangeInfo.Kind == "stock")
+                    {
+                        datefrom = new DateTime(2015, 1, 1);
+                    }
+                   
+                    var response = await _yahooClient.GetFinancialDataRange(exchangeInfo, datefrom);
                     if (response is not null && response.Count() > 0)
                     {
-                       // File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "Assets", fNameRawResponses), System.Text.Json.JsonSerializer.Serialize(response));
+                       
                         rawResponses.AddRange(response);
                     }
                     else
@@ -120,7 +119,7 @@ foreach (var exchangeGroup in exchangeInformation.GroupBy(x=>x.ExchangeName))
                     var response = await _sologenicClient.GetCryptoDataRange(exchangeInfo, datefrom);
                     if (response is not null && response.Count() > 0)
                     {
-                     //   File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "Assets", fNameRawResponses), System.Text.Json.JsonSerializer.Serialize(response));
+                     
                         rawResponses.AddRange(response);
                     }
                     else
@@ -155,7 +154,7 @@ foreach (var yearResult in rawResponses.GroupBy(x => x.Date.Year))
 }
 
 var fNameRawResponsesMissing = "missing_exchangerates.json";
-//File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "Assets", fNameRawResponses), System.Text.Json.JsonSerializer.Serialize(rawResponses));
-File.WriteAllText(Path.Combine(Environment.CurrentDirectory, "Assets", fNameRawResponsesMissing), System.Text.Json.JsonSerializer.Serialize(exchangeInformationRetrieveFailures));
+File.WriteAllText(Path.Combine(dirInfo.FullName, fNameRawResponsesMissing), System.Text.Json.JsonSerializer.Serialize(exchangeInformationRetrieveFailures));
+Console.WriteLine("Press any key to exit...");
 Console.ReadLine();
 
