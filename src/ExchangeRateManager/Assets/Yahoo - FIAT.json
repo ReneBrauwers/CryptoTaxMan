@@ -1,0 +1,23 @@
+[
+  {
+    "Kind": "fiat",
+    "Symbol": "aud",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "aud",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "fiat",
+    "Symbol": "eur",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "eur",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "fiat",
+    "Symbol": "usd",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "usd",
+    "ExchangeCurrency": "aud"
+  }
+]

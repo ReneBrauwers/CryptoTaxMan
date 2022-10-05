@@ -1,0 +1,324 @@
+[
+  {
+    "Kind": "crypto",
+    "Symbol": "bnb",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "binancecoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "cummies",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "cumrocket",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "bcn",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "bytecoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "btc",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "bitcoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "csc",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "casinocoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dash",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "dash",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dcn",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "dentacoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dent",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "dent",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "eth",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "ethereum",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hai",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "hackenai",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hot",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "holotoken",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "jur",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "jur",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "key",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "key",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "lend",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "ethlend",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "matic",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "matic-network",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "miota",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "iota",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "oce",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "oceanex",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pay",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "tenx",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pla",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "plair",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "powr",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "power-ledger",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pswap",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "polkaswap",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "rvn",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "ravencoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sc",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "siacoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sha",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "safe-haven",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "stmx",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "storm",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "tel",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "telcoin",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "usdt",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "tether",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "vet",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "vechain",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "vtho",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "vethor-token",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xlm",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "stellar",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xor",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "sora",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xrp",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "ripple",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pornrocket",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "pornrocket",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hbar",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "hedera-hashgraph",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "bepro",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "bepro-network",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xpr",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "proton",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "vra",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "verasity",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xcur",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "curate",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "catgirl",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "catgirl",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "grimex",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "spacegrime",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "x2",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "x2",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sharpei",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "shar-pei",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "ftm",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "fantom",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dai",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "dai",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "next",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "shopnext",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hec",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "hector-dao",
+    "ExchangeCurrency": "aud"
+  }
+]

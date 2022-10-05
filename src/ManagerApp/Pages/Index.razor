@@ -1,0 +1,242 @@
+﻿@page "/"
+@using FileHelpers;
+@using ManagerApp.Models
+@using System.Text
+@inject IJSRuntime JS
+<PageTitle>Index</PageTitle>
+
+<h1>Hello, world!</h1>
+
+<div class="mb-3">
+    <label for="formFile" class="form-label">Default file input example</label>
+    <InputFile OnChange="UploadFileAlt" class="form-control" id="formFile"></InputFile>
+</div>
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+
+
+
+@code {
+    private List<CryptoTransactionRecord> _importedRecords = new();
+
+    private async void UploadFile(ChangeEventArgs e)
+    {
+
+        Console.WriteLine(e.Value);
+
+
+    }
+
+    private async void UploadFileAlt(InputFileChangeEventArgs e)
+    {
+        //Read file into stream
+        using (var ms = e.File.OpenReadStream())
+        {
+            using (TextReader reader = new StreamReader(ms))
+            {
+                var readerText = await reader.ReadToEndAsync();
+                using (var engine = new FileHelperAsyncEngine<CryptoTransactionRecordImport>())
+                {
+
+                    using (engine.BeginReadString(readerText))
+                    {
+
+                        foreach (var record in engine)
+                        {
+                            _importedRecords.AddRange(Taxify(record));
+                        }
+                    }
+                }
+            }
+        }
+
+        await ExportRecords(_importedRecords);
+
+
+    }
+
+    private List<CryptoTransactionRecord> Taxify(CryptoTransactionRecordImport record)
+    {
+        List<CryptoTransactionRecord> taxifiedRecords = new List<CryptoTransactionRecord>();
+
+        switch (record.TransactionType.ToLower())
+        {
+
+            case "buy":
+                {
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = false,
+                            Amount = record.AmountIn,
+                            AmountAssetType = record.CurrencyIn,                           
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = record.TransactionType,
+                            ValueAssetTypeIsFiat = true
+                        });
+                    break;
+                }
+            case "nftbuy":
+                {
+                    //sell and a buy
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = true,
+                            Amount = record.AmountIn,
+                            AmountAssetType = record.CurrencyIn,
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "sell",
+                            ValueAssetTypeIsFiat = true
+                        });
+
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = false,
+                            Amount = record.AmountOut,
+                            AmountAssetType = record.CurrencyOut,                           
+                            Sequence = record.Sequence,
+                            Value = record.AmountIn,
+                            ValueAssetType = record.CurrencyIn,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "buy",
+                            ValueAssetTypeIsFiat = false
+
+                        });
+                    break;
+                }
+            case "stake":
+                {
+                    //sell 
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = true,
+                            Amount = record.AmountIn,
+                            AmountAssetType = record.CurrencyIn,
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "sell",
+                            ValueAssetTypeIsFiat = true
+                        });
+                    break;
+                }
+            case "transfer":
+                {
+                    //sell
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = false,
+                            Amount = (record.AmountIn-record.AmountOut),
+                            AmountAssetType = record.CurrencyIn,
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "sell",
+                            ValueAssetTypeIsFiat = true
+                        });
+                    break;
+                }
+            case "sell":
+                {
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = true,
+                            Amount = record.AmountIn,
+                            AmountAssetType = record.CurrencyIn,
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "sell",
+                            ValueAssetTypeIsFiat = true
+                        });
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = false,
+                            Amount = record.AmountOut,
+                            AmountAssetType = record.CurrencyOut,
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = record.TransactionType,
+                            ValueAssetTypeIsFiat = true
+
+                        });
+                    break;
+                }
+            case "nftsell":
+                {
+                    //sell and a buy
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = true,
+                            Amount = record.AmountIn,
+                            AmountAssetType = record.CurrencyIn,
+                            Sequence = record.Sequence,
+                            Value = record.AmountOut,
+                            ValueAssetType = record.CurrencyOut,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "sell",
+                            ValueAssetTypeIsFiat = false
+                        });
+
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = false,
+                            Amount = record.AmountOut,
+                            AmountAssetType = record.CurrencyOut,
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "buy",
+                            ValueAssetTypeIsFiat = true
+
+                        });
+                    break;
+                }
+            case "unstake":
+                {
+                    //buy
+
+                    taxifiedRecords.Add(new CryptoTransactionRecord
+                        {
+                            TaxableEvent = false,
+                            Amount = record.AmountOut,
+                            AmountAssetType = record.CurrencyOut,
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate.Date,
+                            TransactionType = "buy",
+                            ValueAssetTypeIsFiat = true
+                        });
+                    break;
+                }
+            default:
+                {
+                    break;
+                }
+        }
+
+
+        return taxifiedRecords;
+    }
+
+    private async Task ExportRecords(List<CryptoTransactionRecord> records)
+    {
+        var engine = new FileHelperEngine<CryptoTransactionRecord>();
+        engine.HeaderText = engine.GetFileHeader();
+        var outputString = engine.WriteString(records);
+        using (var outputStream = new MemoryStream(Encoding.UTF8.GetBytes(outputString)))
+        {
+            using (var streamRef = new DotNetStreamReference(stream: outputStream))
+            {
+                //download using JS
+                string fName = string.Concat(DateTime.Now.ToString("yyyy-MM-dd"),"_",DateTime.Now.Ticks,".csv");
+                await JS.InvokeVoidAsync("downloadFile", fName, streamRef);
+            }
+        }
+    }
+    //   await outputStream.DisposeAsync();
+    
+}

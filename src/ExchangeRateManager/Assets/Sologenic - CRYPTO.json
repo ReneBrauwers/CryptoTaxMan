@@ -1,0 +1,149 @@
+[
+  {
+    "Kind": "crypto",
+    "Symbol": "scs",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "SCS+rHYr9XNQJf1Kury1wGkht7Hrb9d43PqSMw",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "adv",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "ADV+rPneN8WPHZJaMT9pF4Ynyyq4pZZZSeTuHu",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "smartnft",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "SmartNFT+rf8dxyFrYWEcUQAM7QXdbbtcRPzjvoQybK",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "smartlox",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "SmartLOX+rBdZkMKuPnzYVVkyL2DrQKV3DsYt5PPVRh",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "equilibrium",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "Equilibrium+rpakCr61Q92abPXJnVboKENmpKssWyHpwu",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "fse",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "FSE+rs1MKY54miDtMFEGyNuPd3BLsXauFZUSrj",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "csc",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "CSC+rCSCManTZ8ME9EoLrSHHYKW8PPwWMgkwr",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xag",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "XAG+rpG9E7B3ocgaKqG7vmrsu3jmGwex8W4xAG",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "lox",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "LOX+rLLJvh6bwj2eTYwzLL484AW6EyH4rdZqWZ",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "els",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "ELS+rHXuEaRYnnJHbDeuBH5w8yPh5uwNVh5zAg",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sgb",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "SGB+rctArjqVvTHihekzDeecKo6mkTYTUSBNc",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "mayc",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "MAYC+rfdjz9HVpd5ixQE6LBK2cZT9XhJEYpgBtC",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "solo",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "SOLO+rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "rpr",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "RPR+r3qWgpz2ry3BhcRJ8JE6rxM8esrfhuKp4R",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xqk",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "XQK+rHKrPGdpaqNRqRvmsiqQhD6azqc4npWoLC",
+    "ExchangeCurrency": "xrp"
+  },
+   {
+    "Kind": "crypto",
+    "Symbol": "xstik",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "xSTIK+rJNV9i4Q6zvRhpE2zjxgkvff3eGHQohZht",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "trsry",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "TRSRY+rLBnhMjV6ifEHYeV4gaS6jPKerZhQddFxW",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xdx",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "XDX+rMJAXYsbNzhwp7FfYnAsYP5ty3R9XnurPo",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sgb",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "SGB+rctArjqVvTHihekzDeecKo6mkTYTUSBNc",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "coreum",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "CORE+rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "utilitex",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "UtiliteX+rKDsnVfFMzdqrU8Bqno37d29L8ZW3hvrf8",
+    "ExchangeCurrency": "xrp"
+  }
+]

@@ -1,0 +1,9 @@
+[
+  {
+    "Kind": "stock",
+    "Symbol": "moq",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "moq.ax",
+    "ExchangeCurrency": "aud"
+  }
+]

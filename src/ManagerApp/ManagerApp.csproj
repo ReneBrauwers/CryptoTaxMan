@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="wwwroot\css\bootstrap\**" />
+    <Content Remove="wwwroot\css\bootstrap\**" />
+    <EmbeddedResource Remove="wwwroot\css\bootstrap\**" />
+    <None Remove="wwwroot\css\bootstrap\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FileHelpers" Version="3.5.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="6.0.9" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="6.0.9" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\config\" />
+  </ItemGroup>
+
+</Project>
