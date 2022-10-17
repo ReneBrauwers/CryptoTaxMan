@@ -23,4 +23,8 @@
     <Folder Include="wwwroot\config\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.csproj" />
+  </ItemGroup>
+
 </Project>
