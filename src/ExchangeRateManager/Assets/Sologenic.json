@@ -15,6 +15,13 @@
   },
   {
     "Kind": "crypto",
+    "Symbol": "vgb",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "VGB+rhcyBrowwApgNonehKBj8Po5z4gTyRknaU",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
     "Symbol": "smartnft",
     "ExchangeName": "Sologenic",
     "ExchangeSymbol": "SmartNFT+rf8dxyFrYWEcUQAM7QXdbbtcRPzjvoQybK",
@@ -104,7 +111,7 @@
     "ExchangeSymbol": "XQK+rHKrPGdpaqNRqRvmsiqQhD6azqc4npWoLC",
     "ExchangeCurrency": "xrp"
   },
-   {
+  {
     "Kind": "crypto",
     "Symbol": "xstik",
     "ExchangeName": "Sologenic",

@@ -12,11 +12,14 @@ namespace ManagerApp.Models
         public bool TaxableEvent { get; set; }
         public double? Amount { get; set; }
         public string? AmountAssetType { get; set; }
-        public double? ExchangeRateValue { get; set; }
+        public double? ExchangeRateValue { get; set; } = 0d;
         public string? ExchangeRateCurrency { get; set; }
-        public double? Value { get; set; }
+        public double? Value { get; set; } = 0d;
         public string? ValueAssetType { get; set; }
         public bool IsNFT { get; set; } = false;
+
+        public bool? UsesManualAssignedExchangeRate { get; set; } = false;
+        public string? InternalNotes { get; set; }
         //public string? FeeCurrency;
         //public double? ExchangeRate;
         //public string? ExchangeCurrency;

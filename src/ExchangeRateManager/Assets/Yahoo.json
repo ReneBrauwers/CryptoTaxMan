@@ -127,9 +127,51 @@
   },
   {
     "Kind": "crypto",
-    "Symbol": "fantom",
+    "Symbol": "ftm",
     "ExchangeName": "YahooFinance",
     "ExchangeSymbol": "ftm",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "stmx",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "stmx",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "powr",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "powr",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "mvg",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "mvg",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "hbar",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "hbar",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "bepro",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "bepro",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "vra",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "vra",
     "ExchangeCurrency": "aud"
   },
   {
