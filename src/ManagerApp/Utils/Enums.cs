@@ -4,8 +4,14 @@
     {
         public enum TradeType
         {
+            crypto,
+            stock
+
+        }
+        public enum TradeAction
+        {
             buy,
-            nftbuy,           
+            nftbuy,
             transfer,
             stake,
             sell,

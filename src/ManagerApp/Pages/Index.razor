@@ -18,31 +18,89 @@
     </div>
 </div>
 <div class="row mb-3">
+    
     <div class="col-12">
+
         <HxGrid SelectedDataItem="selectedDataItem"
                 SelectedDataItemChanged="HandleSelectedDataItemChanged"
                 TItem="CryptoTransactionRecordImport"
                 Responsive="true"
                 DataProvider="ClientSideProcessingDataProvider"
-                PageSize="10">
+                PageSize="10"
+                HeaderRowCssClass="small"
+                ItemRowCssClass="small"
+                >
             <Columns>
-                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Trade" SortKeySelector="@(item => item.TransactionType)" IsDefaultSortColumn="true">
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Trade" SortKeySelector="@(item => item.TransactionType)" IsDefaultSortColumn="false">
                     <ItemTemplate Context="item">
                         @if (selectedDataItem == item)
                         {
-                            <HxSelect TItem="string" TValue="string" Data="@Enum.GetNames(typeof(TradeType)).ToList()" @bind-Value="@item.TransactionType" TextSelector="@(p => p)" ValueSelector="@(p => p)" Nullable="true" NullText="-select name-" NullDataText="Loading..." />
-    
-                            
-                               
-                             
+                            <HxSelect TItem="string" TValue="string" Data="@Enum.GetNames(typeof(TradeAction)).ToList()" @bind-Value="@item.TransactionType" TextSelector="@(p => p)" ValueSelector="@(p => p)" Nullable="true" NullText="-select name-" NullDataText="Loading..." />  
                         }
                         else
                         {
                             <div>@item.TransactionType</div>
                         }
+                    </ItemTemplate>                    
+                </HxGridColumn>
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Type" SortKeySelector="@(item => item.AssetType)" IsDefaultSortColumn="false">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+                            <HxSelect TItem="string" TValue="string" Data="@Enum.GetNames(typeof(TradeType)).ToList()" @bind-Value="@item.AssetType" TextSelector="@(p => p)" ValueSelector="@(p => p)" Nullable="true" NullText="-select name-" NullDataText="Loading..." />
+                        }
+                        else
+                        {
+                            <div>@item.AssetType</div>
+                        }
                     </ItemTemplate>
                 </HxGridColumn>
-             
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Date" SortKeySelector="@(item => item.TransactionDate)" IsDefaultSortColumn="true">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+                            <input @bind="@selectedDataItem.TransactionDate" class="form-control" type="date" placeholder="yyyy-mm-dd" />
+                         
+                          
+                        }
+                        else
+                        {
+                            <div>@item.TransactionDate.ToString("d")</div>
+                        }
+                    </ItemTemplate>
+                </HxGridColumn>
+
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Amount" SortKeySelector="@(item => item.AmountIn)" IsDefaultSortColumn="false">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+                            
+                                <input @bind="@selectedDataItem.AmountIn" class="form-control" type="number" />
+                      
+
+                        }
+                        else
+                        {
+                            <div>@item.AmountIn.ToString()</div>
+                        }
+                    </ItemTemplate>
+                </HxGridColumn>
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Currency (in)" SortKeySelector="@(item => item.CurrencyIn)" IsDefaultSortColumn="false">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+
+                            <input @bind="@selectedDataItem.CurrencyIn" class="form-control" type="text" />
+
+
+
+                        }
+                        else
+                        {
+                            <div>@item.CurrencyIn</div>
+                        }
+                    </ItemTemplate>
+                </HxGridColumn>
             </Columns>
         </HxGrid>
 
@@ -74,10 +132,12 @@
     {
         localEditableDataItem.Add(new CryptoTransactionRecordImport()
             {
-                TransactionDate = DateTime.Now.Date,
+                TransactionDate = DateTime.Now.Date.AddDays(-7),
                 Sequence = 1,
                 TransactionType = "buy",
-                AssetType = "crypto"
+                AssetType = "crypto",
+                AmountIn = 1234.56780,
+                CurrencyIn = "xrp"
 
             });
     }
