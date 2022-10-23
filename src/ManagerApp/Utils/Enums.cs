@@ -16,7 +16,8 @@
             stake,
             sell,
             nftsell,
-            unstake
+            unstake,
+            not_defined
 
         }
     }

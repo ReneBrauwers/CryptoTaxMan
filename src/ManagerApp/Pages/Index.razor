@@ -13,14 +13,117 @@
 
 <div class="row mb-3">
     <div class="col-12">
-    <label for="formFile" class="form-label">Import CSV transactions</label>
-    <InputFile OnChange="UploadFile" class="form-control" id="formFile"></InputFile>
+        <label for="formFile" class="form-label">Import CSV transactions</label>
+        <InputFile OnChange="UploadFile" class="form-control" id="formFile"></InputFile>
     </div>
 </div>
 <div class="row mb-3">
-    
-    <div class="col-12">
 
+    <div class="col-12">
+        <HxModal @ref="recordAddModal" Title="@($"Transaction Management {(!isEditMode?" (add)":"(edit)")}")" Backdrop="ModalBackdrop.Static" Centered="true" Size="ModalSize.Large" Scrollable="true">
+            <BodyTemplate>
+                @*                @if (!isEditMode)
+                {
+                <h4>Add</h4>
+                }
+                else
+                {
+                <h4>Edit</h4>
+
+                }*@
+
+                <EditForm Model="@newDataItem" OnValidSubmit="@HandleValidSubmit">
+                    <div class="row mb-3">
+
+                        <div class="col-4">
+                            <label for="tradeaction" class="form-label">Trade Action</label>
+                            <select id="tradeaction" class="form-select" @onchange="@SetTradeAction">
+                                <option selected>Choose...</option>
+                                @foreach (var item in @Enum.GetNames(typeof(TradeAction)).ToList())
+                                {
+                                    <option @bind="@newDataItem.TransactionType">@item</option>
+                                }
+
+                            </select>
+
+                        </div>
+                        <div class="col-4">
+                            <label for="assettype" class="form-label">Asset Type</label>
+                            <select id="assettype" class="form-select">
+                                <option selected>Choose...</option>
+                                @foreach (var item in @Enum.GetNames(typeof(TradeType)).ToList())
+                                {
+                                    <option @bind="@newDataItem.AssetType">@item</option>
+                                }
+
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label for="txdate" class="form-label">Date</label>
+                            <input id="txdate" @bind="@newDataItem.TransactionDate" class="form-control" type="date" placeholder="yyyy-mm-dd" />
+                        </div>
+                    </div>
+                    @if (selectedTradeAction != TradeAction.unstake)
+                    {
+
+                        <div class="row mb-3">
+                            @if (!string.IsNullOrWhiteSpace(InName))
+                            {
+                                <div class="col-6">
+                                    <label for="amountin" class="form-label">@InName</label>
+                                    <input type="number" class="form-control" id="amountin" @bind="@newDataItem.AmountIn">
+                                </div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(InCurrency))
+                            {
+                                <div class="col-6">
+                                    <label for="currencyin" class="form-label">@InCurrency</label>
+                                    <input type="text" class="form-control" id="currencyin" @bind="@newDataItem.CurrencyIn">
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (selectedTradeAction != TradeAction.buy || selectedTradeAction != TradeAction.stake)
+                    {
+                        <div class="row mb-3">
+                            @if (!string.IsNullOrWhiteSpace(OutName))
+                            {
+                                <div class="col-6">
+                                    <label for="amountout" class="form-label">@OutName</label>
+                                <input type="number" class="form-control" id="amountout" @bind="@newDataItem.AmountOut">
+                            </div>}
+                            @if (!string.IsNullOrWhiteSpace(OutCurrency))
+                            {
+                                <div class="col-6">
+                                    <label for="currencyout" class="form-label">@OutCurrency</label>
+                                    <input type="text" class="form-control" id="currencyout" @bind="@newDataItem.CurrencyOut">
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label for="exchangerate" class="form-label">Exchange rate</label>
+                            <input type="number" class="form-control" id="exchangerate" @bind="@newDataItem.ExchangeRate">
+                        </div>
+                        <div class="col-6">
+                            <label for="exchangecurrency" class="form-label">Currency</label>
+                            <input type="text" class="form-control" id="exchangecurrency" @bind="@newDataItem.ExchangeCurrency">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <HxSubmit Color="ThemeColor.Primary">Save</HxSubmit>
+                        </div>
+                                                <div class="col-6">
+                            <HxButton Text="Cancel" OnClick="@(async() => await recordAddModal.HideAsync())" Color="ThemeColor.Danger" />
+                        </div>
+                    </div>
+                </EditForm>
+            </BodyTemplate>
+         
+        </HxModal>
         <HxGrid SelectedDataItem="selectedDataItem"
                 SelectedDataItemChanged="HandleSelectedDataItemChanged"
                 TItem="CryptoTransactionRecordImport"
@@ -29,19 +132,19 @@
                 PageSize="10"
                 HeaderRowCssClass="small"
                 ItemRowCssClass="small"
-                >
+                @ref="recordsToImportGrid">
             <Columns>
                 <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Trade" SortKeySelector="@(item => item.TransactionType)" IsDefaultSortColumn="false">
                     <ItemTemplate Context="item">
                         @if (selectedDataItem == item)
                         {
-                            <HxSelect TItem="string" TValue="string" Data="@Enum.GetNames(typeof(TradeAction)).ToList()" @bind-Value="@item.TransactionType" TextSelector="@(p => p)" ValueSelector="@(p => p)" Nullable="true" NullText="-select name-" NullDataText="Loading..." />  
+                            <HxSelect TItem="string" TValue="string" Data="@Enum.GetNames(typeof(TradeAction)).ToList()" @bind-Value="@item.TransactionType" TextSelector="@(p => p)" ValueSelector="@(p => p)" Nullable="true" NullText="-select name-" NullDataText="Loading..." />
                         }
                         else
                         {
                             <div>@item.TransactionType</div>
                         }
-                    </ItemTemplate>                    
+                    </ItemTemplate>
                 </HxGridColumn>
                 <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Type" SortKeySelector="@(item => item.AssetType)" IsDefaultSortColumn="false">
                     <ItemTemplate Context="item">
@@ -60,8 +163,8 @@
                         @if (selectedDataItem == item)
                         {
                             <input @bind="@selectedDataItem.TransactionDate" class="form-control" type="date" placeholder="yyyy-mm-dd" />
-                         
-                          
+
+
                         }
                         else
                         {
@@ -74,9 +177,9 @@
                     <ItemTemplate Context="item">
                         @if (selectedDataItem == item)
                         {
-                            
-                                <input @bind="@selectedDataItem.AmountIn" class="form-control" type="number" />
-                      
+
+                            <input @bind="@selectedDataItem.AmountIn" class="form-control" type="number" />
+
 
                         }
                         else
@@ -101,9 +204,71 @@
                         }
                     </ItemTemplate>
                 </HxGridColumn>
+
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Amount" SortKeySelector="@(item => item.AmountOut)" IsDefaultSortColumn="false">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+
+                            <input @bind="@selectedDataItem.AmountOut" class="form-control" type="number" />
+
+
+                        }
+                        else
+                        {
+                            <div>@item.AmountOut.ToString()</div>
+                        }
+                    </ItemTemplate>
+                </HxGridColumn>
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Currency (out)" SortKeySelector="@(item => item.CurrencyOut)" IsDefaultSortColumn="false">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+
+                            <input @bind="@selectedDataItem.CurrencyOut" class="form-control" type="text" />
+
+
+
+                        }
+                        else
+                        {
+                            <div>@item.CurrencyOut</div>
+                        }
+                    </ItemTemplate>
+                </HxGridColumn>
+
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Exchange currency" SortKeySelector="@(item => item.ExchangeCurrency)" IsDefaultSortColumn="false">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+
+                            <input @bind="@selectedDataItem.ExchangeCurrency" class="form-control" type="text" />
+
+
+                        }
+                        else
+                        {
+                            <div>@item.ExchangeCurrency</div>
+                        }
+                    </ItemTemplate>
+                </HxGridColumn>
+                <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Exchange rate" SortKeySelector="@(item => item.ExchangeRate)" IsDefaultSortColumn="false">
+                    <ItemTemplate Context="item">
+                        @if (selectedDataItem == item)
+                        {
+
+                            <input @bind="@selectedDataItem.ExchangeRate" class="form-control" type="number" />
+
+                        }
+                        else
+                        {
+                            <div>@item.ExchangeRate</div>
+                        }
+                    </ItemTemplate>
+                </HxGridColumn>
             </Columns>
         </HxGrid>
-
+        <HxButton Icon="@BootstrapIcon.PlusCircle" IconPlacement="ButtonIconPlacement.End" Text="Add" OnClick="@(async () =>  {isEditMode = false;await recordAddModal.ShowAsync();})"></HxButton>
 
     </div>
 </div>
@@ -121,7 +286,19 @@
 
 @code {
 
-    private CryptoTransactionRecordImport selectedDataItem;
+    private HxGrid<CryptoTransactionRecordImport>? recordsToImportGrid;
+    private HxModal? recordAddModal;
+    private bool isEditMode = false;
+    private string InName { get; set; } = "Amount (in)";
+    private string InCurrency { get; set; } = "Currency (in)";
+    private string OutName { get; set; } = "Amount (out)";
+    private string OutCurrency { get; set; } = "Currency (out)";
+
+
+
+    private TradeAction selectedTradeAction = TradeAction.not_defined;
+    private CryptoTransactionRecordImport selectedDataItem = new();
+    private CryptoTransactionRecordImport newDataItem = new();
     private List<CryptoTransactionRecordImport> localEditableDataItem { get; set; } = new();
     private IEnumerable<string> TradeTypes = Enum.GetNames(typeof(TradeType)).ToList();
     private List<CryptoTransactionRecord> _importedRecords = new();
@@ -130,16 +307,31 @@
 
     protected override void OnInitialized()
     {
-        localEditableDataItem.Add(new CryptoTransactionRecordImport()
-            {
-                TransactionDate = DateTime.Now.Date.AddDays(-7),
-                Sequence = 1,
-                TransactionType = "buy",
-                AssetType = "crypto",
-                AmountIn = 1234.56780,
-                CurrencyIn = "xrp"
+        //localEditableDataItem.Add(new CryptoTransactionRecordImport()
+        //    {
+        //        TransactionDate = DateTime.Now.Date.AddDays(-7),
+        //        Sequence = 1,
+        //        TransactionType = "buy",
+        //        AssetType = "crypto",
+        //        AmountIn = 1234.56780,
+        //        CurrencyIn = "xrp"
 
-            });
+        //    });
+    }
+
+    private async Task SetTradeAction(ChangeEventArgs e)
+    {
+        var selectedString = e?.Value?.ToString() ?? string.Empty;
+        if (!Enum.TryParse<TradeAction>(selectedString, true, out selectedTradeAction))
+        {
+            selectedTradeAction = TradeAction.not_defined;
+        }
+
+        SetCustomLabelNames();
+
+        await InvokeAsync(StateHasChanged);
+
+
     }
 
     private Task<GridDataProviderResult<CryptoTransactionRecordImport>> ClientSideProcessingDataProvider(GridDataProviderRequest<CryptoTransactionRecordImport> request)
@@ -157,6 +349,32 @@
         }
 
         selectedDataItem = newSelectedDataItem;
+    }
+
+    private void HandleValidSubmit()
+    {
+        Console.WriteLine("HandleValidSubmit called");
+
+        // Process the valid form
+    }
+
+    private async Task InsertRecord()
+    {
+        localEditableDataItem.Add(new CryptoTransactionRecordImport()
+            {
+                TransactionDate = DateTime.Now.Date.AddDays(-7),
+                Sequence = 1,
+                TransactionType = "buy",
+                AssetType = "crypto",
+                AmountIn = 1234.56780,
+                CurrencyIn = "xrp"
+
+
+
+            });
+
+        await recordsToImportGrid.RefreshDataAsync();
+
     }
 
 
@@ -209,7 +427,7 @@
             }
             catch (Exception ex)
             {
-               // Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
+                // Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
             }
             finally
             {
@@ -246,7 +464,7 @@
         foreach (var record in recordsWithNoPredefinedExchangeRates)
         {
             var UTCTransactionDateTime = record.TransactionDate.ToUniversalTime();
-           
+
             //lookup exchange rate
             List<ExchangeRate> scopedExchangeRates = new();
             scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.AmountAssetType));
@@ -255,7 +473,7 @@
                 //augment
 
                 record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
-                 record.UsesManualAssignedExchangeRate = false;
+                record.UsesManualAssignedExchangeRate = false;
                 if (record.TransactionType.ToLower() == "buy")
                 {
                     record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High);
@@ -328,10 +546,10 @@
         foreach (var record in recordsWithPredefinedExchangeRates)
         {
             var UTCTransactionDateTime = record.TransactionDate.ToUniversalTime();
-           
+
             //indicates we are using the user supplied exchange rate
             record.UsesManualAssignedExchangeRate = true;
-            
+
             List<ExchangeRate> scopedExchangeRates = new();
             var exchangeRates = new List<string>() { "aud", "usd" };
             if (!exchangeRates.Contains(record.ExchangeRateCurrency.ToLower()))
@@ -345,7 +563,7 @@
                 if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
                 {
                     //augment
-                    
+
                     record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
                     //convert
 
@@ -409,6 +627,81 @@
             }
         }
     }
-  
+
+    private void SetCustomLabelNames()
+    {
+        switch (selectedTradeAction)
+        {
+            case TradeAction.sell:
+                {
+                    InName = "Amount (sold)";
+                    InCurrency = "Currency";
+                    OutName = "Amount (bought)";
+                    OutCurrency = "Currency";
+                    break;
+                }
+            case TradeAction.buy:
+                {
+                    InName = "Amount (bought)";
+                    InCurrency = "Currency";
+                    OutName = string.Empty;
+                    OutCurrency = string.Empty;
+                    break;
+                }
+            case TradeAction.nftsell:
+                {
+                    InName = "NFT (quantity)";
+                    InCurrency = "Name";
+                    OutName = "Amount (worth)";
+                    OutCurrency = "Currency";
+                    break;
+                }
+            case TradeAction.nftbuy:
+                {
+                    InName = "Amount (bought)";
+                    InCurrency = "Currency";
+                    OutName = "NFT (quantity)";
+                    OutCurrency = "Name";
+                    break;
+                }
+            case TradeAction.stake:
+                {
+                    InName = "Amount (staked)";
+                    InCurrency = "Currency";
+                    OutName = string.Empty;
+                    OutCurrency = string.Empty;
+                    break;
+                }
+            case TradeAction.unstake:
+                {
+                    InName = string.Empty;
+                    InCurrency = string.Empty;
+                    OutName = "Amount (unstaked)";
+                    OutCurrency = "Currency";
+                    break;
+
+                }
+            case TradeAction.transfer:
+                {
+                    InName = "Transfer out (quantity)";
+                    InCurrency = "Currency";
+                    OutName = "Transfer in (quantity)";
+                    OutCurrency = "Currency";
+                    break;
+
+                }
+
+            default:
+                {
+                    InName = "Amount (in)";
+                    InCurrency = "Currency (in)";
+                    OutName = "Amount (out)";
+                    OutCurrency = "Currency (out)";
+                    break;
+
+                }
+        }
+    }
+
 
 }

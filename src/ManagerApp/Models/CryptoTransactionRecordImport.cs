@@ -5,9 +5,9 @@ namespace ManagerApp.Models
     [DelimitedRecord(",")]   
     public class CryptoTransactionRecordImport
     {
-        public int Sequence;
+        public int Sequence = 0;
         [FieldConverter(ConverterKind.Date, "yyyy-MM-ddTHH:mm:ss")]
-        public DateTime TransactionDate;
+        public DateTime TransactionDate = DateTime.Today;
         [FieldCaption("TransactionType")]
         public string? AssetType;        
         public double? AmountIn;
