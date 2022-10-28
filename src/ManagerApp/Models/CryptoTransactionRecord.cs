@@ -18,7 +18,7 @@ namespace ManagerApp.Models
         public string? ValueAssetType { get; set; }
         public bool IsNFT { get; set; } = false;
 
-        public bool? UsesManualAssignedExchangeRate { get; set; } = false;
+        public bool UsesManualAssignedExchangeRate { get; set; } = false;
         public string? InternalNotes { get; set; }
         //public string? FeeCurrency;
         //public double? ExchangeRate;
