@@ -268,11 +268,16 @@
                             }
                         </ItemTemplate>
                     </HxGridColumn>
+                    <HxContextMenuGridColumn TItem="CryptoTransactionRecordImport" Context="item">
+                    <HxContextMenu>
+                        <HxContextMenuItem Text="Delete" Icon="BootstrapIcon.Trash" OnClick="() => DeleteItem(item)" />
+                    </HxContextMenu>
+        </HxContextMenuGridColumn>                
                 </Columns>
             </HxGrid>
             <HxButton Icon="@BootstrapIcon.PlusCircle" IconPlacement="ButtonIconPlacement.End" Text="Add" OnClick="@(async () =>  {isEditMode = false;await recordAddModal.ShowAsync();})"></HxButton>
             <HxButton Icon="@BootstrapIcon.LightningCharge" IconPlacement="ButtonIconPlacement.End" Text="Taxify" OnClick="@CreateTaxRecords"></HxButton>
-            //CreateTaxRecords
+           
         </div>
     </div>
 }
@@ -334,7 +339,7 @@ else
                     }
                     else
                     {
-                        <div>@(selectedTaxDataItem.TaxableEvent ? "YES" : "NO")</div>
+                        <div>@(item.TaxableEvent ? "YES" : "NO")</div>
                     }
                 </ItemTemplate>
             </HxGridColumn>
@@ -449,7 +454,7 @@ else
                     }
                     else
                     {
-                        <div>@(selectedTaxDataItem.IsNFT ? "YES" : "NO")</div>
+                        <div>@(item.IsNFT ? "YES" : "NO")</div>
                     }
                 </ItemTemplate>
             </HxGridColumn>
@@ -462,7 +467,7 @@ else
                     }
                     else
                     {
-                        <div>@(selectedTaxDataItem.UsesManualAssignedExchangeRate ? "YES" : "NO")</div>
+                        <div>@(item.UsesManualAssignedExchangeRate ? "YES" : "NO")</div>
                     }
                 </ItemTemplate>
             </HxGridColumn>
@@ -588,6 +593,11 @@ else
         selectedTaxDataItem = newSelectedTaxDataItem;
     }
 
+    private async Task DeleteItem(CryptoTransactionRecordImport item)
+    {
+        localEditableDataItem.Remove(item);
+        await recordsToImportGrid.RefreshDataAsync();
+    }
 
     private async void UploadFile(InputFileChangeEventArgs e)
     {
@@ -631,6 +641,7 @@ else
             //Flatten
             localEditableTaxDataItem = new List<CryptoTransactionRecord>();
             _showLoader = true;
+            await InvokeAsync(StateHasChanged);
             //List<CryptoTransactionRecordImport> enrichedRecords = new List<CryptoTransactionRecordImport>();
             foreach(var record in localEditableDataItem)
             {
@@ -643,6 +654,11 @@ else
                 if (await EnrichTaxRecords())
                 {
                     inTaxMode = true;
+                    if(taxRecordGrid is null)
+                    {
+                        taxRecordGrid = new();
+                        await InvokeAsync(StateHasChanged);
+                    }
                     await taxRecordGrid.RefreshDataAsync();
 
                 }
@@ -658,7 +674,7 @@ else
 
 
             _showLoader = false;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -863,7 +879,7 @@ else
             }
             catch (Exception ex)
             {
-                // Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
+                 Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
             }
             finally
             {
