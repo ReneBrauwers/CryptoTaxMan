@@ -269,15 +269,15 @@
                         </ItemTemplate>
                     </HxGridColumn>
                     <HxContextMenuGridColumn TItem="CryptoTransactionRecordImport" Context="item">
-                    <HxContextMenu>
-                        <HxContextMenuItem Text="Delete" Icon="BootstrapIcon.Trash" OnClick="() => DeleteItem(item)" />
-                    </HxContextMenu>
-        </HxContextMenuGridColumn>                
+                        <HxContextMenu>
+                            <HxContextMenuItem Text="Delete" Icon="BootstrapIcon.Trash" OnClick="() => DeleteItem(item)" />
+                        </HxContextMenu>
+                    </HxContextMenuGridColumn>
                 </Columns>
             </HxGrid>
             <HxButton Icon="@BootstrapIcon.PlusCircle" IconPlacement="ButtonIconPlacement.End" Text="Add" OnClick="@(async () =>  {isEditMode = false;await recordAddModal.ShowAsync();})"></HxButton>
             <HxButton Icon="@BootstrapIcon.LightningCharge" IconPlacement="ButtonIconPlacement.End" Text="Taxify" OnClick="@CreateTaxRecords"></HxButton>
-           
+
         </div>
     </div>
 }
@@ -636,14 +636,14 @@ else
 
     private async void CreateTaxRecords()
     {
-        if(localEditableDataItem.Count > 0)
+        if (localEditableDataItem.Count > 0)
         {
             //Flatten
             localEditableTaxDataItem = new List<CryptoTransactionRecord>();
             _showLoader = true;
             await InvokeAsync(StateHasChanged);
             //List<CryptoTransactionRecordImport> enrichedRecords = new List<CryptoTransactionRecordImport>();
-            foreach(var record in localEditableDataItem)
+            foreach (var record in localEditableDataItem)
             {
                 localEditableTaxDataItem.AddRange(Utils.Taxify.Flatten(record));
             }
@@ -654,7 +654,7 @@ else
                 if (await EnrichTaxRecords())
                 {
                     inTaxMode = true;
-                    if(taxRecordGrid is null)
+                    if (taxRecordGrid is null)
                     {
                         taxRecordGrid = new();
                         await InvokeAsync(StateHasChanged);
@@ -667,7 +667,7 @@ else
                     //TODO: Add a message
                     Console.WriteLine("Something went wrong with the taxification process");
                     inTaxMode = false;
-                    
+
                 }
             }
 
@@ -698,6 +698,7 @@ else
                     AllExchangeRates.AddRange(response);
                 }
             }
+            var validFiatExchangeRates = new List<string>() { "aud", "usd" };
 
             //augment and look up records with no predifined exchange rate value
             var recordsWithNoPredefinedExchangeRates = localEditableTaxDataItem.Where(x => x.ExchangeRateValue == 0 || x.ExchangeRateValue is null);
@@ -707,79 +708,125 @@ else
 
                 //lookup exchange rate
                 List<ExchangeRate> scopedExchangeRates = new();
-                scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.AmountAssetType));
-                if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
+                if (!record.IsNFT)
                 {
-                    //augment
 
-                    record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
-                    record.UsesManualAssignedExchangeRate = false;
-                    if (record.TransactionType.ToLower() == "buy")
+                    scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.AmountAssetType));
+                    if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
                     {
-                        record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High);
-                    }
-                    else
-                    {
-                        record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().Low);
-                    }
+                        //augment
 
-                    var exchangeRates = new List<string>() { "aud", "usd" };
-                    if (!exchangeRates.Contains(record.ExchangeRateCurrency.ToLower()))
-                    {
-                        //lookup exchange rate
-                        scopedExchangeRates = new();
-
-                        scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.ExchangeRateCurrency.ToLower()));
-                        if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
-                        {
-                            //augment
-                            //we will use the highest exchange rate for buys and lowest for sells.
-                            //exchangeRateValue = 0d;
-                            record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
-                            record.UsesManualAssignedExchangeRate = false;
-                            //convert
-
-                            if (record.TransactionType.ToLower() == "buy")
-                            {
-                                record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High) * record.ExchangeRateValue;
-                            }
-                            else
-                            {
-                                record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().Low) * record.ExchangeRateValue;
-                            }
-
-
-                        }
-                    }
-
-                    //deal with NFTs, and calculate totals
-                    if (record.IsNFT)
-                    {
-                        //check value and convert to AUD
-
-                        scopedExchangeRates = new();
-                        scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.ValueAssetType.ToLower()));
-                        if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
-                        {
-                            //augment
-                            record.UsesManualAssignedExchangeRate = false;
-                            record.Value = Convert.ToDouble(scopedExchangeRates?.FirstOrDefault()?.High) * record.Value;
-                            record.ValueAssetType = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency;
-                            record.ExchangeRateValue = record.Value / record.Amount;
-                            record.ExchangeRateCurrency = record.ValueAssetType;
-                        }
-                    }
-                    else
-                    {
+                        record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
                         record.UsesManualAssignedExchangeRate = false;
-                        record.Value = record.Amount * record.ExchangeRateValue;
-                        record.ValueAssetType = record.ExchangeRateCurrency;
+                        if (record.TransactionType.ToLower() == "buy")
+                        {
+                            record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High);
+                        }
+                        else
+                        {
+                            record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().Low);
+                        }
+
+                        // var exchangeRates = new List<string>() { "aud", "usd" };
+                        if (!validFiatExchangeRates.Contains(record.ExchangeRateCurrency.ToLower()))
+                        {
+                            //lookup exchange rate
+                            scopedExchangeRates = new();
+
+                            scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.ExchangeRateCurrency.ToLower()));
+                            if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
+                            {
+                                //augment
+                                //we will use the highest exchange rate for buys and lowest for sells.
+                                //exchangeRateValue = 0d;
+                                record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
+                                record.UsesManualAssignedExchangeRate = false;
+                                //convert
+
+                                if (record.TransactionType.ToLower() == "buy")
+                                {
+                                    record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High) * record.ExchangeRateValue;
+                                }
+                                else
+                                {
+                                    record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().Low) * record.ExchangeRateValue;
+                                }
+
+
+                            }
+                        }
                     }
                 }
 
+                //deal with NFTs, and calculate totals
+                if (record.IsNFT)
+                {
+                    //check value and convert to AUD
 
+                    scopedExchangeRates = new();
+                    scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.ValueAssetType.ToLower()));
+                    if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
+                    {
+                        var recordValue = record.Value;
+                        var recordAssetType = record.ValueAssetType.ToLower();
+                        double recordExchangeRate = 0d;
+                        //determine exchange rate to use (Ie; buy at a daily high, sell at a daily low)
+                        if (record.TransactionType.ToLower() == "buy")
+                        {
+                            recordExchangeRate = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High);
+                        }
+                        else
+                        {
+                            recordExchangeRate = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().Low);
+                        }
+                        //augment
+                        record.UsesManualAssignedExchangeRate = false;
+                        Console.WriteLine($"ex.rate: {recordExchangeRate}");
+                        record.Value = recordExchangeRate * recordValue;  //we buy at the highest day rate
+                        record.ValueAssetType = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency;             //Fiat Type; ie AUD
+                        record.ExchangeRateValue = recordValue / record.Amount;                                      // value of 1 unit of NFT
+                        record.ExchangeRateCurrency = recordAssetType;                                               // value in non-fiat when NFT
+
+                        //if recordAssetType is non-fiat; we need to convert it to the scopedExchangeRates (first) value 
+                        //var exchangeRates = new List<string>() { "aud", "usd" };
+                        if (!validFiatExchangeRates.Contains(recordAssetType.ToLower()))
+                        {
+                            //lookup exchange rate
+                            scopedExchangeRates = new();
+                            scopedExchangeRates.AddRange(AllExchangeRates.Where(x => x.Date.Date == UTCTransactionDateTime.Date && x.Symbol.ToLower() == record.ValueAssetType.ToLower()));
+                            if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
+                            {
+                                record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
+                                record.UsesManualAssignedExchangeRate = false;
+
+                                //determine exchange rate to use (Ie; buy at a daily high, sell at a daily low)
+                                if (record.TransactionType.ToLower() == "buy")
+                                {
+                                    recordExchangeRate = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High);
+                                    //record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High) * record.ExchangeRateValue;
+                                }
+                                else
+                                {
+                                    recordExchangeRate = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().Low);
+                                    //record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().Low) * record.ExchangeRateValue;
+                                }
+
+                                record.ExchangeRateValue = recordExchangeRate * record.ExchangeRateValue;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    record.UsesManualAssignedExchangeRate = false;
+                    record.Value = record.Amount * record.ExchangeRateValue;
+                    record.ValueAssetType = record.ExchangeRateCurrency;
+                }
             }
 
+
+
+            //TODO: Check NFT Price conversion logic
 
             //augment and skip looking up records where exchange rates are predifined
             var recordsWithPredefinedExchangeRates = localEditableTaxDataItem.Where(x => x.ExchangeRateValue > 0);
@@ -879,7 +926,7 @@ else
             }
             catch (Exception ex)
             {
-                 Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
+                Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
             }
             finally
             {
@@ -892,7 +939,7 @@ else
 
     }
 
- 
+
     private async Task ExportRecords(List<CryptoTransactionRecord> records)
     {
         //flattern

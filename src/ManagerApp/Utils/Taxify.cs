@@ -71,101 +71,139 @@ namespace ManagerApp.Utils
                 case "stake":
                     {
                         //sell
-
-                        taxifiedRecords.Add(new CryptoTransactionRecord
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        bool useProvidedExchangeRate = false;
+                        if (record.ExchangeRate is not null && record.ExchangeRate > 0)
                         {
-                            TaxableEvent = true,
-                            Amount = record.AmountIn,
-                            AmountAssetType = record.CurrencyIn,
-                            Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
-                            TransactionType = "sell",
-                            ExchangeRateCurrency = record.ExchangeCurrency,
-                            ExchangeRateValue = record.ExchangeRate,
-                            IsNFT = false
+                            useProvidedExchangeRate = true;
+                        }
 
-                        });
+                        //exchange rate and exchange currency in a STAKE SELL reflects the exchange rate staked against 
+                        var sellRecord = new CryptoTransactionRecord();
+
+
+                        sellRecord.TaxableEvent = true;
+                        sellRecord.Amount = record.AmountIn;
+                        sellRecord.AmountAssetType = record.CurrencyIn;
+                        sellRecord.Sequence = record.Sequence;
+                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionType = "sell";
+                        sellRecord.IsNFT = false;                       
+                        sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+                        taxifiedRecords.Add(sellRecord);
+
                         break;
                     }
                 case "transfer":
                     {
                         //sell
-
-                        taxifiedRecords.Add(new CryptoTransactionRecord
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        bool useProvidedExchangeRate = false;
+                        if (record.ExchangeRate is not null && record.ExchangeRate > 0)
                         {
-                            TaxableEvent = true,
-                            Amount = (record.AmountIn - record.AmountOut),
-                            AmountAssetType = record.CurrencyIn,
-                            Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
-                            TransactionType = "sell",
-                            IsNFT = false,
-                            InternalNotes = "Transfer fees",
-                            ExchangeRateCurrency = record.ExchangeCurrency,
-                            ExchangeRateValue = record.ExchangeRate
+                            useProvidedExchangeRate = true;
+                        }
 
-                        });
+                        var sellRecord = new CryptoTransactionRecord();
+
+
+                        sellRecord.TaxableEvent = true;
+                        sellRecord.Amount = (record.AmountIn - record.AmountOut);
+                        sellRecord.AmountAssetType = record.CurrencyIn;
+                        sellRecord.Sequence = record.Sequence;
+                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionType = "sell";
+                        sellRecord.IsNFT = false;
+                        sellRecord.InternalNotes = "Transfer fees";
+                        sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+
+                        taxifiedRecords.Add(sellRecord);
+
                         break;
                     }
                 case "sell":
                     {
-                        taxifiedRecords.Add(new CryptoTransactionRecord
-                        {
-                            TaxableEvent = true,
-                            Amount = record.AmountIn,
-                            AmountAssetType = record.CurrencyIn,
-                            Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
-                            TransactionType = "sell",
-                            IsNFT = false,
-                            //ExchangeRateCurrency = record.ExchangeCurrency,
-                            //ExchangeRateValue = record.ExchangeRate
-                        });
+                        
 
-                        taxifiedRecords.Add(new CryptoTransactionRecord
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        bool useProvidedExchangeRate = false;
+                        if (record.ExchangeRate is not null && record.ExchangeRate > 0)
                         {
-                            TaxableEvent = false,
-                            Amount = record.AmountOut,
-                            AmountAssetType = record.CurrencyOut,
-                            Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
-                            TransactionType = "buy",
-                            IsNFT = false
+                            useProvidedExchangeRate = true;
+                        }
 
-                        });
+                        //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
+                        var sellRecord = new CryptoTransactionRecord();
+                       
+
+                        sellRecord.TaxableEvent = true;
+                        sellRecord.Amount = record.AmountIn;
+                        sellRecord.AmountAssetType = record.CurrencyIn;
+                        sellRecord.Sequence = record.Sequence;
+                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionType = "sell";
+                        sellRecord.IsNFT = false;
+                        //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        //sellRecord.ExchangeRateValue =  (useProvidedExchangeRate? record.ExchangeRate:0d);
+
+                        taxifiedRecords.Add(sellRecord);
+
+                        var buyRecord = new CryptoTransactionRecord();
+                        buyRecord.TaxableEvent = false;
+                        buyRecord.Amount = record.AmountOut;
+                        buyRecord.AmountAssetType = record.CurrencyOut;
+                        buyRecord.Sequence = record.Sequence;
+                        buyRecord.TransactionDate = record.TransactionDate.Date;
+                        buyRecord.TransactionType = "buy";
+                        buyRecord.IsNFT = false;
+                        buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        buyRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+
+                        taxifiedRecords.Add(buyRecord);
                         break;
                     }
                 case "nftsell":
                     {
-                        //sell and a buy
-
-                        taxifiedRecords.Add(new CryptoTransactionRecord
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        bool useProvidedExchangeRate = false;
+                        if (record.ExchangeRate is not null && record.ExchangeRate > 0)
                         {
-                            TaxableEvent = true,
-                            Amount = record.AmountIn,
-                            AmountAssetType = record.CurrencyIn,
-                            Sequence = record.Sequence,
-                            Value = record.AmountOut,
-                            ValueAssetType = record.CurrencyOut,
-                            TransactionDate = record.TransactionDate.Date,
-                            TransactionType = "sell",
-                            IsNFT = true,
-                            //ExchangeRateCurrency = record.ExchangeCurrency,
-                            //ExchangeRateValue = record.ExchangeRate
-                        });
+                            useProvidedExchangeRate = true;
+                        }
+
+                        //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
+                        var sellRecord = new CryptoTransactionRecord();
 
 
-                        taxifiedRecords.Add(new CryptoTransactionRecord
-                        {
-                            TaxableEvent = false,
-                            Amount = record.AmountOut,
-                            AmountAssetType = record.CurrencyOut,
-                            Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
-                            TransactionType = "buy",
-                            IsNFT = false
+                        sellRecord.TaxableEvent = true;
+                        sellRecord.Amount = record.AmountIn;
+                        sellRecord.AmountAssetType = record.CurrencyIn;
+                        sellRecord.Sequence = record.Sequence;
+                        sellRecord.Value = record.AmountOut;
+                        sellRecord.ValueAssetType = record.CurrencyOut;
+                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionType = "sell";
+                        sellRecord.IsNFT = true;
+                        //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
 
-                        });
+                        taxifiedRecords.Add(sellRecord);
+
+                        var buyRecord = new CryptoTransactionRecord();
+                        buyRecord.TaxableEvent = false;
+                        buyRecord.Amount = record.AmountOut;
+                        buyRecord.AmountAssetType = record.CurrencyOut;
+                        buyRecord.Sequence = record.Sequence;
+                        buyRecord.TransactionDate = record.TransactionDate.Date;
+                        buyRecord.TransactionType = "buy";
+                        buyRecord.IsNFT = false;
+                        buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        buyRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+
+                        taxifiedRecords.Add(buyRecord);
+
                         break;
                     }
                 case "unstake":
