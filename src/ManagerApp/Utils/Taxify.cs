@@ -235,65 +235,217 @@ namespace ManagerApp.Utils
             return taxifiedRecords;
         }
 
-        
-        public static List<CryptoTransactionRecord> AddExchangeRates(List<CryptoTransactionRecord> records, List<ExchangeRate> exchangeRates)
+        /// <summary>
+        /// Augements non NFT crypto records with corresponding exchange rates and calculates total amounts
+        /// </summary>
+        /// <param name="records">Crypto records</param>
+        /// <param name="exchangeRates">List of exchange rates to use for reference</param>
+        /// <returns>Augmented list of (non NFT) crypto transactions</returns>
+        public static List<CryptoTransactionRecord> AddExchangeRates(List<CryptoTransactionRecord> transactions, List<ExchangeRate> exchangeRates)
         {
+            List<CryptoTransactionRecord> records = new List<CryptoTransactionRecord>();
+            records.AddRange(transactions.Where(x => x.IsNFT == false));
+
             List<CryptoTransactionRecord> result = new List<CryptoTransactionRecord>();
-            foreach (var record in records)
+            if(records.Count > 2)
             {
-                CryptoTransactionRecord updatedRecord = new CryptoTransactionRecord();
-
-                updatedRecord.Sequence = record.Sequence;
-                updatedRecord.Value = record.Value;
-                updatedRecord.TransactionDate = record.TransactionDate.ToUniversalTime();
-                updatedRecord.ValueAssetType = record.ValueAssetType;
-                updatedRecord.Amount = record.Amount;
-                updatedRecord.AmountAssetType = record.AmountAssetType;
-                updatedRecord.IsNFT = record.IsNFT;
-                updatedRecord.UsesManualAssignedExchangeRate = false;
-                updatedRecord.TaxableEvent = record.TaxableEvent;
-                updatedRecord.InternalNotes = record.InternalNotes;
-
-                string sourceCurrency = record.AmountAssetType ?? string.Empty;
-                DateTime exchangeRateDay = record.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
-                string targetCurrency = sourceCurrency; // string.Empty;
-                string transactionType = record.TransactionType ?? string.Empty;
-                double exchangeRate = 0d;
-                          
-                while(targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
+                return records.Select(x =>
                 {
-                    Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
-                    var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay);
+                    x.InternalNotes = "Skipped, scenario not supported.";
+                    return x;
+                }).ToList();
+            }
 
-                    if (exchangeRateInformation is not null && (!string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency)))
+            //init
+            CryptoTransactionRecord updatedRecord = new CryptoTransactionRecord();
+
+            if (records.Count > 1)
+            {
+                //sell & nftbuy & nftsell contain an in and out transaction; for which 
+                if (records.Any(x => x.TransactionType == "sell"))
+                {
+                    //exchange rate for BUY will be inferred to be in line with the sell amount.
+                    //Ie; if the sell is worth 100AUD the subsequent buy will be 100AUD
+
+                    var sellRecord = records.First(x => x.TransactionType == "sell");
+
+                    updatedRecord.Sequence = sellRecord.Sequence;
+                    updatedRecord.Value = sellRecord.Value;
+                    updatedRecord.TransactionDate = sellRecord.TransactionDate.ToUniversalTime();
+                    updatedRecord.ValueAssetType = sellRecord.ValueAssetType;
+                    updatedRecord.Amount = sellRecord.Amount;
+                    updatedRecord.AmountAssetType = sellRecord.AmountAssetType;
+                    updatedRecord.IsNFT = sellRecord.IsNFT;
+                    updatedRecord.UsesManualAssignedExchangeRate = false;
+                    updatedRecord.TaxableEvent = sellRecord.TaxableEvent;
+                    updatedRecord.InternalNotes = sellRecord.InternalNotes;
+
+                    string sourceCurrency = sellRecord.AmountAssetType ?? string.Empty;
+                    DateTime exchangeRateDay = sellRecord.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
+                    string targetCurrency = sourceCurrency; // string.Empty;
+                    string transactionType = sellRecord.TransactionType ?? string.Empty;
+                    double exchangeRate = 0d;
+
+                    while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
                     {
-                        targetCurrency = exchangeRateInformation.ExchangeCurrency;
-                        exchangeRate = (transactionType == "buy" ? Convert.ToDouble(exchangeRateInformation.High) : Convert.ToDouble(exchangeRateInformation.Low));
-                    }
-                    else
-                    {
-                        if (record.ExchangeRateValue == 0)
+                        //Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
+                        var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay);
+
+                        if (exchangeRateInformation is not null && (!string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency)))
                         {
-                            updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
-                            break; //exit while;
+                            targetCurrency = exchangeRateInformation.ExchangeCurrency;
+
+                            if (exchangeRate == 0d)
+                            {
+                                exchangeRate = Convert.ToDouble(exchangeRateInformation.Low);
+                            }
+                            else
+                            {
+                                var previousExchangeRate = exchangeRate;
+                                exchangeRate = previousExchangeRate * Convert.ToDouble(exchangeRateInformation.Low);
+
+                            }
+
+                            //high - low difference tolerance check
                         }
                         else
                         {
-                            updatedRecord.UsesManualAssignedExchangeRate = true;
-                            updatedRecord.ExchangeRateValue = record.ExchangeRateValue;
+                            if (sellRecord.ExchangeRateValue == 0)
+                            {
+                                updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
+                                break; //exit while;
+                            }
+                            else
+                            {
+                                updatedRecord.UsesManualAssignedExchangeRate = true;
+                                exchangeRate = sellRecord.ExchangeRateValue ?? 0d;
+                            }
+
                         }
-                      
                     }
+
+                    //update exchange rates
+
+                    updatedRecord.ExchangeRateValue = exchangeRate;
+                    updatedRecord.ExchangeRateCurrency = targetCurrency;
+                    updatedRecord.TransactionType = transactionType;
+                    updatedRecord.Value = (sellRecord.Amount * exchangeRate);
+                    updatedRecord.ValueAssetType = targetCurrency;
+                    result.Add(updatedRecord);
+
+
+
                 }
 
-                //update exchange rates
+                if (records.Any(x => x.TransactionType == "buy"))
+                {
+                    //exchange rate for BUY will be inferred to be in line with the sell amount.
+                    //Ie; if the sell is worth 100AUD the subsequent buy will be 100AUD
 
-                updatedRecord.ExchangeRateValue = exchangeRate;
-                updatedRecord.ExchangeRateCurrency = targetCurrency;
-                updatedRecord.TransactionType = transactionType;
-               
+                    var buyRecord = records.First(x => x.TransactionType == "buy");
+
+                    updatedRecord = new CryptoTransactionRecord();
+
+                    var buyAmountValue = result.First(x => x.TransactionType == "sell").Value;
+
+                    updatedRecord.Sequence = buyRecord.Sequence;
+                    updatedRecord.TransactionType = buyRecord.TransactionType;
+                    updatedRecord.Value = buyAmountValue;
+                    updatedRecord.TransactionDate = buyRecord.TransactionDate.ToUniversalTime();
+                    updatedRecord.ValueAssetType = buyRecord.ExchangeRateCurrency;
+                    updatedRecord.Amount = buyRecord.Amount;
+                    updatedRecord.AmountAssetType = buyRecord.AmountAssetType;
+                    updatedRecord.IsNFT = buyRecord.IsNFT;
+                    updatedRecord.UsesManualAssignedExchangeRate = false;
+                    updatedRecord.TaxableEvent = buyRecord.TaxableEvent;
+                    updatedRecord.InternalNotes = buyRecord.InternalNotes;
+                    updatedRecord.ExchangeRateCurrency = buyRecord.ExchangeRateCurrency;
+                    updatedRecord.ExchangeRateValue = (buyAmountValue / buyRecord.Amount);
+
+                    result.Add(updatedRecord);
+                    // 500 xrp   500 csc  --> 1000 AUD value
+                    //updatedRecord.Value = (sellRecord.Amount * exchangeRate);
+
+
+
+                }
+            }
+            else
+            {
+                var record = records.First();
+                //foreach (var record in records)
+                //{
+                    updatedRecord = new CryptoTransactionRecord();
+
+                    updatedRecord.Sequence = record.Sequence;
+                    updatedRecord.Value = record.Value;
+                    updatedRecord.TransactionDate = record.TransactionDate.ToUniversalTime();
+                    updatedRecord.ValueAssetType = record.ValueAssetType;
+                    updatedRecord.Amount = record.Amount;
+                    updatedRecord.AmountAssetType = record.AmountAssetType;
+                    updatedRecord.IsNFT = record.IsNFT;
+                    updatedRecord.UsesManualAssignedExchangeRate = false;
+                    updatedRecord.TaxableEvent = record.TaxableEvent;
+                    updatedRecord.InternalNotes = record.InternalNotes;
+
+                    string sourceCurrency = record.AmountAssetType ?? string.Empty;
+                    DateTime exchangeRateDay = record.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
+                    string targetCurrency = sourceCurrency; // string.Empty;
+                    string transactionType = record.TransactionType ?? string.Empty;
+                    double exchangeRate = 0d;
+
+                    while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
+                    {
+                        // Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
+                        var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay);
+
+                        if (exchangeRateInformation is not null && (!string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency)))
+                        {
+                            targetCurrency = exchangeRateInformation.ExchangeCurrency;
+                            double low = Convert.ToDouble(exchangeRateInformation.Low);
+                            double high = Convert.ToDouble(exchangeRateInformation.High);
+                            bool flagHighDailyPriceFlux = false;
+
+
+                            if (exchangeRate == 0d)
+                            {
+                                exchangeRate = (transactionType == "buy" ? Convert.ToDouble(exchangeRateInformation.High) : Convert.ToDouble(exchangeRateInformation.Low));
+                            }
+                            else
+                            {
+                                var previousExchangeRate = exchangeRate;
+                                exchangeRate = previousExchangeRate * (transactionType == "buy" ? Convert.ToDouble(exchangeRateInformation.High) : Convert.ToDouble(exchangeRateInformation.Low));
+
+                            }
+
+                            //high - low difference tolerance check
+                        }
+                        else
+                        {
+                            if (record.ExchangeRateValue == 0)
+                            {
+                                updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
+                                break; //exit while;
+                            }
+                            else
+                            {
+                                updatedRecord.UsesManualAssignedExchangeRate = true;
+                                updatedRecord.ExchangeRateValue = record.ExchangeRateValue;
+                            }
+
+                        }
+                    }
+
+                    //update exchange rates
+
+                    updatedRecord.ExchangeRateValue = exchangeRate;
+                    updatedRecord.ExchangeRateCurrency = targetCurrency;
+                    updatedRecord.TransactionType = transactionType;
+                    updatedRecord.Value = (record.Amount * exchangeRate);
+                    updatedRecord.ValueAssetType = targetCurrency;
 
                 result.Add(updatedRecord);
+                
             }
 
             return result;

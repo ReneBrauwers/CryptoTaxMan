@@ -737,11 +737,7 @@ else
 
             if (localEditableTaxDataItem.Count > 0)
             {
-                //enrich
-                //var enrichedUtils.Taxify.AddExchangeRates(localEditableTaxDataItem, allExchangeRates);
-
-                //if (await EnrichTaxRecords())
-                //{
+               
                     inTaxMode = true;
                     if (taxRecordGrid is null)
                     {
@@ -749,15 +745,7 @@ else
                         await InvokeAsync(StateHasChanged);
                     }
                     await taxRecordGrid.RefreshDataAsync();
-
-                //}
-                //else
-                //{
-                    //TODO: Add a message
-                //    Console.WriteLine("Something went wrong with the taxification process");
-                //    inTaxMode = false;
-
-               // }
+              
             }
 
 
