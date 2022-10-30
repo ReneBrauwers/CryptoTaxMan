@@ -1,4 +1,5 @@
-﻿using ManagerApp.Models;
+﻿using Common.Models;
+using ManagerApp.Models;
 using System.Collections.Generic;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.X509Certificates;
@@ -27,7 +28,7 @@ namespace ManagerApp.Utils
                             Amount = record.AmountIn,
                             AmountAssetType = record.CurrencyIn,
                             Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
+                            TransactionDate = record.TransactionDate,
                             TransactionType = record.TransactionType,
                             ExchangeRateCurrency = record.ExchangeCurrency,
                             ExchangeRateValue = record.ExchangeRate,                            
@@ -45,7 +46,7 @@ namespace ManagerApp.Utils
                             Amount = record.AmountIn,
                             AmountAssetType = record.CurrencyIn,
                             Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
+                            TransactionDate = record.TransactionDate,
                             TransactionType = "sell",
                             //ExchangeRateCurrency = record.ExchangeCurrency,
                             //ExchangeRateValue = record.ExchangeRate,
@@ -61,7 +62,7 @@ namespace ManagerApp.Utils
                             Sequence = record.Sequence,
                             Value = record.AmountIn,
                             ValueAssetType = record.CurrencyIn,
-                            TransactionDate = record.TransactionDate.Date,
+                            TransactionDate = record.TransactionDate,
                             TransactionType = "buy",
                             IsNFT = true
 
@@ -86,7 +87,7 @@ namespace ManagerApp.Utils
                         sellRecord.Amount = record.AmountIn;
                         sellRecord.AmountAssetType = record.CurrencyIn;
                         sellRecord.Sequence = record.Sequence;
-                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionDate = record.TransactionDate;
                         sellRecord.TransactionType = "sell";
                         sellRecord.IsNFT = false;                       
                         sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
@@ -112,7 +113,7 @@ namespace ManagerApp.Utils
                         sellRecord.Amount = (record.AmountIn - record.AmountOut);
                         sellRecord.AmountAssetType = record.CurrencyIn;
                         sellRecord.Sequence = record.Sequence;
-                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionDate = record.TransactionDate;
                         sellRecord.TransactionType = "sell";
                         sellRecord.IsNFT = false;
                         sellRecord.InternalNotes = "Transfer fees";
@@ -142,7 +143,7 @@ namespace ManagerApp.Utils
                         sellRecord.Amount = record.AmountIn;
                         sellRecord.AmountAssetType = record.CurrencyIn;
                         sellRecord.Sequence = record.Sequence;
-                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionDate = record.TransactionDate;
                         sellRecord.TransactionType = "sell";
                         sellRecord.IsNFT = false;
                         //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
@@ -155,7 +156,7 @@ namespace ManagerApp.Utils
                         buyRecord.Amount = record.AmountOut;
                         buyRecord.AmountAssetType = record.CurrencyOut;
                         buyRecord.Sequence = record.Sequence;
-                        buyRecord.TransactionDate = record.TransactionDate.Date;
+                        buyRecord.TransactionDate = record.TransactionDate;
                         buyRecord.TransactionType = "buy";
                         buyRecord.IsNFT = false;
                         buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
@@ -183,7 +184,7 @@ namespace ManagerApp.Utils
                         sellRecord.Sequence = record.Sequence;
                         sellRecord.Value = record.AmountOut;
                         sellRecord.ValueAssetType = record.CurrencyOut;
-                        sellRecord.TransactionDate = record.TransactionDate.Date;
+                        sellRecord.TransactionDate = record.TransactionDate;
                         sellRecord.TransactionType = "sell";
                         sellRecord.IsNFT = true;
                         //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
@@ -196,7 +197,7 @@ namespace ManagerApp.Utils
                         buyRecord.Amount = record.AmountOut;
                         buyRecord.AmountAssetType = record.CurrencyOut;
                         buyRecord.Sequence = record.Sequence;
-                        buyRecord.TransactionDate = record.TransactionDate.Date;
+                        buyRecord.TransactionDate = record.TransactionDate;
                         buyRecord.TransactionType = "buy";
                         buyRecord.IsNFT = false;
                         buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
@@ -216,7 +217,7 @@ namespace ManagerApp.Utils
                             Amount = record.AmountOut,
                             AmountAssetType = record.CurrencyOut,
                             Sequence = record.Sequence,
-                            TransactionDate = record.TransactionDate.Date,
+                            TransactionDate = record.TransactionDate,
                             TransactionType = "buy",
                             IsNFT = false,
                             ExchangeRateCurrency = record.ExchangeCurrency,
@@ -232,6 +233,71 @@ namespace ManagerApp.Utils
 
 
             return taxifiedRecords;
+        }
+
+        
+        public static List<CryptoTransactionRecord> AddExchangeRates(List<CryptoTransactionRecord> records, List<ExchangeRate> exchangeRates)
+        {
+            List<CryptoTransactionRecord> result = new List<CryptoTransactionRecord>();
+            foreach (var record in records)
+            {
+                CryptoTransactionRecord updatedRecord = new CryptoTransactionRecord();
+
+                updatedRecord.Sequence = record.Sequence;
+                updatedRecord.Value = record.Value;
+                updatedRecord.TransactionDate = record.TransactionDate.ToUniversalTime();
+                updatedRecord.ValueAssetType = record.ValueAssetType;
+                updatedRecord.Amount = record.Amount;
+                updatedRecord.AmountAssetType = record.AmountAssetType;
+                updatedRecord.IsNFT = record.IsNFT;
+                updatedRecord.UsesManualAssignedExchangeRate = false;
+                updatedRecord.TaxableEvent = record.TaxableEvent;
+                updatedRecord.InternalNotes = record.InternalNotes;
+
+                string sourceCurrency = record.AmountAssetType ?? string.Empty;
+                DateTime exchangeRateDay = record.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
+                string targetCurrency = sourceCurrency; // string.Empty;
+                string transactionType = record.TransactionType ?? string.Empty;
+                double exchangeRate = 0d;
+                          
+                while(targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
+                {
+                    Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
+                    var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay);
+
+                    if (exchangeRateInformation is not null && (!string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency)))
+                    {
+                        targetCurrency = exchangeRateInformation.ExchangeCurrency;
+                        exchangeRate = (transactionType == "buy" ? Convert.ToDouble(exchangeRateInformation.High) : Convert.ToDouble(exchangeRateInformation.Low));
+                    }
+                    else
+                    {
+                        if (record.ExchangeRateValue == 0)
+                        {
+                            updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
+                            break; //exit while;
+                        }
+                        else
+                        {
+                            updatedRecord.UsesManualAssignedExchangeRate = true;
+                            updatedRecord.ExchangeRateValue = record.ExchangeRateValue;
+                        }
+                      
+                    }
+                }
+
+                //update exchange rates
+
+                updatedRecord.ExchangeRateValue = exchangeRate;
+                updatedRecord.ExchangeRateCurrency = targetCurrency;
+                updatedRecord.TransactionType = transactionType;
+               
+
+                result.Add(updatedRecord);
+            }
+
+            return result;
+
         }
 
         /// <summary>

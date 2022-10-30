@@ -545,7 +545,7 @@ else
                     <HxCard>
                         <BodyTemplate>
                             <HxCardTitle>@collection.Name</HxCardTitle>
-                            <HxCardSubtitle CssClass="mb-2 text-muted">@collection.CreatedOn.ToString("ddd-MMM-yyyy")</HxCardSubtitle>
+                            <HxCardSubtitle CssClass="mb-2 text-muted">@collection.CreatedOn.ToString("dddd, dd MMMM yyyy")</HxCardSubtitle>
                             <HxCardText>@($"{collection.Available} {collection.Name} available @ {collection.BoughtAt} {collection.Currency}")</HxCardText>
                             </BodyTemplate>
                         </HxCard>
@@ -699,17 +699,49 @@ else
             localEditableTaxDataItem = new List<CryptoTransactionRecord>();
             _showLoader = true;
             await InvokeAsync(StateHasChanged);
-            //List<CryptoTransactionRecordImport> enrichedRecords = new List<CryptoTransactionRecordImport>();
+
+            allExchangeRates = new List<ExchangeRate>();
+
+            List<string> symbols = new();
+            symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyIn).Distinct());
+            symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyOut).Distinct());
+            symbols.AddRange(localEditableDataItem.Select(x => x.ExchangeCurrency).Distinct());
+
+            List<int> years = new();
+            foreach (var symbol in symbols.Distinct())
+            {
+                if (!string.IsNullOrWhiteSpace(symbol))
+                {
+
+                    years.Add(localEditableDataItem?.Where(x => x.CurrencyIn == symbol).MinBy(x => x.TransactionDate)?.TransactionDate.Year ?? DateTime.UtcNow.Year);
+                    years.Add(localEditableDataItem?.Where(x => x.CurrencyOut == symbol).MinBy(x => x.TransactionDate)?.TransactionDate.Year ?? DateTime.UtcNow.Year);
+                    years.Add(localEditableDataItem?.Where(x => x.CurrencyIn == symbol).MaxBy(x => x.TransactionDate)?.TransactionDate.Year ?? DateTime.UtcNow.Year);
+                    years.Add(localEditableDataItem?.Where(x => x.CurrencyOut == symbol).MaxBy(x => x.TransactionDate)?.TransactionDate.Year ?? DateTime.UtcNow.Year);
+
+                    var startYear = years.Min();
+                    var endYear = years.Max();
+
+                    var response = await LoadCryptoExchangeRates(symbol.ToLower(), startYear, endYear);
+                    if (response is not null && response.Count > 0)
+                    {
+                        allExchangeRates.AddRange(response);
+                    }
+                }
+            }
+
+
             foreach (var record in localEditableDataItem)
             {
-                localEditableTaxDataItem.AddRange(Utils.Taxify.Flatten(record));
+                localEditableTaxDataItem.AddRange(Utils.Taxify.AddExchangeRates(Utils.Taxify.Flatten(record),allExchangeRates));
             }
 
             if (localEditableTaxDataItem.Count > 0)
             {
                 //enrich
-                if (await EnrichTaxRecords())
-                {
+                //var enrichedUtils.Taxify.AddExchangeRates(localEditableTaxDataItem, allExchangeRates);
+
+                //if (await EnrichTaxRecords())
+                //{
                     inTaxMode = true;
                     if (taxRecordGrid is null)
                     {
@@ -718,14 +750,14 @@ else
                     }
                     await taxRecordGrid.RefreshDataAsync();
 
-                }
-                else
-                {
+                //}
+                //else
+                //{
                     //TODO: Add a message
-                    Console.WriteLine("Something went wrong with the taxification process");
-                    inTaxMode = false;
+                //    Console.WriteLine("Something went wrong with the taxification process");
+                //    inTaxMode = false;
 
-                }
+               // }
             }
 
 
@@ -735,8 +767,8 @@ else
         }
     }
 
-    private async Task<bool> EnrichTaxRecords()
-    {
+    private async Task<bool> EnrichTaxRecordsSkipMe()
+    {        
         if (localEditableTaxDataItem is not null && localEditableTaxDataItem.Count > 0)
         {
             //flattern
@@ -758,8 +790,11 @@ else
             var validFiatExchangeRates = new List<string>() { "aud", "usd" };
 
             //augment and look up records with no predifined exchange rate value
-            var recordsWithNoPredefinedExchangeRates = localEditableTaxDataItem.Where(x => x.ExchangeRateValue == 0 || x.ExchangeRateValue is null);
-            foreach (var record in recordsWithNoPredefinedExchangeRates)
+            List<CryptoTransactionRecord> lookupRequired = new List<CryptoTransactionRecord>();
+            lookupRequired.AddRange(localEditableTaxDataItem.Where(x => x.ExchangeRateValue is null || x.ExchangeRateValue == 0));
+
+            //var recordsWithNoPredefinedExchangeRates = localEditableTaxDataItem.Where(x => x.ExchangeRateValue == 0 || x.ExchangeRateValue is null);
+            foreach (var record in lookupRequired)
             {
                 var UTCTransactionDateTime = record.TransactionDate.ToUniversalTime();
 
@@ -772,7 +807,12 @@ else
                     if (scopedExchangeRates is not null && scopedExchangeRates.Count() > 0)
                     {
                         //augment
-
+                        foreach(var dbg in scopedExchangeRates)
+                        {
+                            Console.WriteLine($"Symbol - {dbg.Symbol}");
+                            Console.WriteLine($"ExchangeCurrency - {dbg.ExchangeCurrency}");
+                            Console.WriteLine($"AmountAssetType - {record.AmountAssetType}");
+                        }
                         record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
                         record.UsesManualAssignedExchangeRate = false;
                         if (record.TransactionType.ToLower() == "buy")
@@ -785,7 +825,9 @@ else
                         }
 
                         // var exchangeRates = new List<string>() { "aud", "usd" };
-                        if (!validFiatExchangeRates.Contains(record.ExchangeRateCurrency.ToLower()))
+                        var lookupFiatExchangeRate = validFiatExchangeRates.Contains(record.ExchangeRateCurrency.ToLower());
+                        Console.WriteLine($"lookupFiatExchangeRate:{lookupFiatExchangeRate}");
+                        if (!lookupFiatExchangeRate)
                         {
                             //lookup exchange rate
                             scopedExchangeRates = new();
@@ -799,7 +841,9 @@ else
                                 record.ExchangeRateCurrency = scopedExchangeRates?.FirstOrDefault()?.ExchangeCurrency ?? "Unkonwn";
                                 record.UsesManualAssignedExchangeRate = false;
                                 //convert
-
+                                var tmp = scopedExchangeRates.FirstOrDefault();
+                                Console.WriteLine($"high: {scopedExchangeRates.FirstOrDefault().High} {scopedExchangeRates.FirstOrDefault().Symbol}");
+                                Console.WriteLine($"low: {scopedExchangeRates.FirstOrDefault().Low} {scopedExchangeRates.FirstOrDefault().Symbol}");
                                 if (record.TransactionType.ToLower() == "buy")
                                 {
                                     record.ExchangeRateValue = Convert.ToDouble(scopedExchangeRates.FirstOrDefault().High) * record.ExchangeRateValue;
@@ -881,13 +925,14 @@ else
                 }
             }
 
-
-
             //TODO: Check NFT Price conversion logic
 
+
             //augment and skip looking up records where exchange rates are predifined
-            var recordsWithPredefinedExchangeRates = localEditableTaxDataItem.Where(x => x.ExchangeRateValue > 0);
-            foreach (var record in recordsWithPredefinedExchangeRates)
+            List<CryptoTransactionRecord> lookupNotRequired = new List<CryptoTransactionRecord>();
+            lookupNotRequired.AddRange(localEditableTaxDataItem.Where(x => x.ExchangeRateValue is not null && x.ExchangeRateValue > 0));
+            //var recordsWithPredefinedExchangeRates = localEditableTaxDataItem.Where(x => x.ExchangeRateValue is not null &&  x.ExchangeRateValue > 0);
+            foreach (var record in lookupNotRequired)
             {
                 var UTCTransactionDateTime = record.TransactionDate.ToUniversalTime();
 
@@ -964,6 +1009,9 @@ else
         return false;
 
     }
+
+
+
 
     private async Task<List<ExchangeRate>> LoadCryptoExchangeRates(string symbol, int startYear = 2015, int endYear = 2022)
     {
