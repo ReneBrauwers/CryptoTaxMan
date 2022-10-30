@@ -114,7 +114,7 @@
                             </div>
                         }
 
-                        <div class="row mb-3">
+@*                        <div class="row mb-3">
                             <div class="col-6">
                                 <label for="exchangerate" class="form-label">Exchange rate</label>
                                 <input type="number" class="form-control" id="exchangerate" @bind="@newDataItem.ExchangeRate">
@@ -123,7 +123,7 @@
                                 <label for="exchangecurrency" class="form-label">Currency</label>
                                 <input type="text" class="form-control" id="exchangecurrency" @bind="@newDataItem.ExchangeCurrency">
                             </div>
-                        </div>
+                        </div>*@
                         <div class="row mb-3">
                             <div class="col-6">
                                 <HxSubmit Color="ThemeColor.Primary">Save</HxSubmit>
@@ -141,7 +141,7 @@
                 TItem="CryptoTransactionRecordImport"
                 Responsive="true"
                 DataProvider="ClientSideProcessingDataProvider"
-                PageSize="10"
+                PageSize="50"
                 HeaderRowCssClass="small"
                 ItemRowCssClass="small"
                 @ref="recordsToImportGrid">
@@ -249,7 +249,7 @@
                         </ItemTemplate>
                     </HxGridColumn>
 
-                    <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Exchange currency" SortKeySelector="@(item => item.ExchangeCurrency)" IsDefaultSortColumn="false">
+@*                    <HxGridColumn TItem="CryptoTransactionRecordImport" HeaderText="Exchange currency" SortKeySelector="@(item => item.ExchangeCurrency)" IsDefaultSortColumn="false">
                         <ItemTemplate Context="item">
                             @if (selectedDataItem == item)
                             {
@@ -277,7 +277,7 @@
                                 <div>@item.ExchangeRate</div>
                             }
                         </ItemTemplate>
-                    </HxGridColumn>
+                    </HxGridColumn>*@
                     <HxContextMenuGridColumn TItem="CryptoTransactionRecordImport" Context="item">
                         <HxContextMenu>
                             <HxContextMenuItem Text="Delete" Icon="BootstrapIcon.Trash" OnClick="() => DeleteItem(item)" />
@@ -298,7 +298,7 @@ else
         TItem="CryptoTransactionRecord"
         Responsive="true"
         DataProvider="ClientSideProcessingTaxDataProvider"
-        PageSize="10"
+        PageSize="50"
         HeaderRowCssClass="small"
         ItemRowCssClass="small"
         @ref="taxRecordGrid">
@@ -705,7 +705,8 @@ else
             List<string> symbols = new();
             symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyIn).Distinct());
             symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyOut).Distinct());
-            symbols.AddRange(localEditableDataItem.Select(x => x.ExchangeCurrency).Distinct());
+            symbols.Add("aud");
+            symbols.Add("usd");
 
             List<int> years = new();
             foreach (var symbol in symbols.Distinct())
@@ -732,7 +733,20 @@ else
 
             foreach (var record in localEditableDataItem)
             {
-                localEditableTaxDataItem.AddRange(Utils.Taxify.AddExchangeRates(Utils.Taxify.Flatten(record),allExchangeRates));
+                var flattenRecords = Utils.Taxify.Flatten(record);
+                var nonNFTExchangeRateEnrichedRecords = Utils.Taxify.AddExchangeRates(flattenRecords, allExchangeRates);
+                var NFTExchangeRateEnrichedRecords = Utils.Taxify.AddNFTExchangeRates(flattenRecords, allExchangeRates);
+
+                if(nonNFTExchangeRateEnrichedRecords is not null && nonNFTExchangeRateEnrichedRecords.Count > 0)
+                {
+                    localEditableTaxDataItem.AddRange(nonNFTExchangeRateEnrichedRecords);
+                }
+
+                if(NFTExchangeRateEnrichedRecords is not null && NFTExchangeRateEnrichedRecords.Count > 0)
+                {
+                    localEditableTaxDataItem.AddRange(NFTExchangeRateEnrichedRecords);
+                }
+                
             }
 
             if (localEditableTaxDataItem.Count > 0)
@@ -1300,7 +1314,7 @@ else
         await InvokeAsync(StateHasChanged);
         myCryptoCollection = CryptoCollectionFactory.CreateCryptoCollection(localEditableTaxDataItem);
 
-        TaxRecords.AddRange(CryptoTaxFactory.CreateCryptoTaxRecords(myCryptoCollection, localEditableTaxDataItem, allExchangeRates));
+        TaxRecords.AddRange(Utils.Taxify.CreateCryptoTaxRecords(myCryptoCollection, localEditableTaxDataItem, allExchangeRates));
         if (TaxRecords.Count > 0)
         {
             var taxResultString = TaxRecords.Select(x =>

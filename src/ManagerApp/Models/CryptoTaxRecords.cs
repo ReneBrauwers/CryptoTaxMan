@@ -9,7 +9,6 @@
         public double SellPrice { get; set; }
         public string Currency { get; set; }
         public double CapitalGainAmount { get; set; }
-
         public string Calculation { get; set; }
     }
 }

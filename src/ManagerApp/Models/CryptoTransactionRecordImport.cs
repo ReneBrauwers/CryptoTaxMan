@@ -18,8 +18,8 @@ namespace ManagerApp.Models
         public string? TransactionType;
         public double? Fee;
         public string? FeeCurrency;
-        public double? ExchangeRate;
-        public string? ExchangeCurrency;
+        //public double? ExchangeRate;
+        //public string? ExchangeCurrency;
         [FieldQuoted]
         public string? Notes;
     }

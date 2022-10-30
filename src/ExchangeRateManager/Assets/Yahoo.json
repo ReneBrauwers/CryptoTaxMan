@@ -57,6 +57,13 @@
   },
   {
     "Kind": "crypto",
+    "Symbol": "mvg",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "mvg",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
     "Symbol": "miota",
     "ExchangeName": "YahooFinance",
     "ExchangeSymbol": "miota",
