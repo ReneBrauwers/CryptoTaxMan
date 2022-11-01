@@ -1,8 +1,13 @@
-﻿namespace ManagerApp.Models
+﻿using FileHelpers;
+
+namespace ManagerApp.Models
 {
+    [IgnoreFirst(1)]
+    [DelimitedRecord(",")]
     public sealed class CryptoTaxRecords
     {
-        public DateOnly SellDate { get; set; }
+        [FieldConverter(ConverterKind.Date, "yyyy-MM-ddTHH:mm:ss")]
+        public DateTime SellDate { get; set; }
         public string Name { get; set; }
         public double SellAmount { get; set; }
         public double BuyPrice { get; set; }

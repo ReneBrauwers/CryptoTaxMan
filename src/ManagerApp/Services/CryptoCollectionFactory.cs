@@ -15,7 +15,7 @@ namespace ManagerApp.Services
                     Available = buyRecords?.Amount ?? 0d,
                     Name = buyRecords?.AmountAssetType ?? Guid.NewGuid().ToString(),
                     BoughtAt = buyRecords?.ExchangeRateValue ?? 0d,
-                    Currency = buyRecords?.ExchangeRateCurrency ?? "AUD"
+                    Currency = buyRecords?.ExchangeRateCurrency ?? "??"
                 });
             }
 

@@ -1,5 +1,6 @@
 ﻿using Common.Models;
 using ManagerApp.Models;
+using Microsoft.AspNetCore.Components.Forms;
 using System.Collections.Generic;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.X509Certificates;
@@ -285,12 +286,14 @@ namespace ManagerApp.Utils
 
                         string sourceCurrency = sellRecord.AmountAssetType ?? string.Empty;
                         DateTime exchangeRateDay = sellRecord.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
+                        DateTime exchangeRateMaxOffset = exchangeRateDay.AddDays(-7); //used to determine how many days we can look back in case of no exchange rates being found for the given day
                         string targetCurrency = sourceCurrency; // string.Empty;
                         string transactionType = sellRecord.TransactionType ?? string.Empty;
                         double exchangeRate = 0d;
 
                         //skip looking up exchange rate, if below conditions matches
 
+                        
 
                         while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
                         {
@@ -318,8 +321,20 @@ namespace ManagerApp.Utils
                             {
                                 if (sellRecord.ExchangeRateValue == 0)
                                 {
-                                    updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
-                                    break; //exit while;
+                                    if (exchangeRateDay >= exchangeRateMaxOffset)
+                                    {
+                                        //attempt to lookup exchange-rate for previous day
+                                        exchangeRateDay = exchangeRateDay.AddDays(-1);
+                                        updatedRecord.InternalNotes = $"No Exchange rate found for transaction date; using rate from {exchangeRateDay.ToString("D")} instead";
+                                      
+                                    }
+                                    else
+                                    {
+                                        updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
+                                        break; //exit while;
+                                    }
+                                    
+                                   
                                 }
                                 else
                                 {
@@ -353,19 +368,20 @@ namespace ManagerApp.Utils
                         updatedRecord = new CryptoTransactionRecord();
 
                         var buyAmountValue = result.First(x => x.TransactionType == "sell").Value;
+                        var buyAmountCurrency = result.First(x => x.TransactionType == "sell").ExchangeRateCurrency;
 
                         updatedRecord.Sequence = buyRecord.Sequence;
                         updatedRecord.TransactionType = buyRecord.TransactionType;
                         updatedRecord.Value = buyAmountValue;
                         updatedRecord.TransactionDate = buyRecord.TransactionDate.ToUniversalTime();
-                        updatedRecord.ValueAssetType = buyRecord.ExchangeRateCurrency;
+                        updatedRecord.ValueAssetType = buyAmountCurrency;
                         updatedRecord.Amount = buyRecord.Amount;
                         updatedRecord.AmountAssetType = buyRecord.AmountAssetType;
                         updatedRecord.IsNFT = buyRecord.IsNFT;
                         updatedRecord.UsesManualAssignedExchangeRate = false;
                         updatedRecord.TaxableEvent = buyRecord.TaxableEvent;
                         updatedRecord.InternalNotes = buyRecord.InternalNotes;
-                        updatedRecord.ExchangeRateCurrency = buyRecord.ExchangeRateCurrency;
+                        updatedRecord.ExchangeRateCurrency = buyAmountCurrency;
                         updatedRecord.ExchangeRateValue = (buyAmountValue / buyRecord.Amount);
 
                         result.Add(updatedRecord);
@@ -396,6 +412,8 @@ namespace ManagerApp.Utils
 
                     string sourceCurrency = record.AmountAssetType ?? string.Empty;
                     DateTime exchangeRateDay = record.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
+                    DateTime exchangeRateMaxOffset = exchangeRateDay.AddDays(-7); //used to determine how many days we can look back in case of no exchange rates being found for the given day
+
                     string targetCurrency = sourceCurrency; // string.Empty;
                     string transactionType = record.TransactionType ?? string.Empty;
                     double exchangeRate = 0d;
@@ -432,8 +450,18 @@ namespace ManagerApp.Utils
                         {
                             if (record.ExchangeRateValue == 0)
                             {
-                                updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
-                                break; //exit while;
+                                if (exchangeRateDay >= exchangeRateMaxOffset)
+                                {
+                                    //attempt to lookup exchange-rate for previous day
+                                    exchangeRateDay = exchangeRateDay.AddDays(-1);
+                                    updatedRecord.InternalNotes = $"No Exchange rate found for transaction date; using rate from {exchangeRateDay.ToString("D")} instead";
+                                                            }
+                                else
+                                {
+                                    updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
+                                    break; //exit while;
+                                }
+                                
                             }
                             else
                             {
@@ -514,6 +542,7 @@ namespace ManagerApp.Utils
 
                         string sourceCurrency = sellNFTRecord.AmountAssetType ?? string.Empty;
                         DateTime exchangeRateDay = sellNFTRecord.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
+                        DateTime exchangeRateMaxOffset = exchangeRateDay.AddDays(-7); //used to determine how many days we can look back in case of no exchange rates being found for the given day
                         string targetCurrency = sourceCurrency; // string.Empty;
                         string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
                         double exchangeRate = 0d;
@@ -544,8 +573,18 @@ namespace ManagerApp.Utils
                             {
                                 if (sellNFTRecord.ExchangeRateValue == 0)
                                 {
-                                    updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
-                                    break; //exit while;
+                                    if (exchangeRateDay >= exchangeRateMaxOffset)
+                                    {
+                                        //attempt to lookup exchange-rate for previous day
+                                        exchangeRateDay = exchangeRateDay.AddDays(-1);
+                                        updatedRecord.InternalNotes = $"No Exchange rate found for transaction date; using rate from {exchangeRateDay.ToString("D")} instead";
+                                                                }
+                                    else
+                                    {
+                                        updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
+                                        break; //exit while;
+                                    }
+                                    
                                 }
                                 else
                                 {
@@ -612,6 +651,7 @@ namespace ManagerApp.Utils
 
                         string sourceCurrency = sellNFTRecord.AmountAssetType ?? string.Empty;
                         DateTime exchangeRateDay = sellNFTRecord.TransactionDate.ToUniversalTime().Date; //using UTC to lookup
+                        DateTime exchangeRateMaxOffset = exchangeRateDay.AddDays(-7); //used to determine how many days we can look back in case of no exchange rates being found for the given day
                         string targetCurrency = sourceCurrency; // string.Empty;
                         string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
                         double exchangeRate = 0d;
@@ -642,8 +682,18 @@ namespace ManagerApp.Utils
                             {
                                 if (sellNFTRecord.ExchangeRateValue == 0)
                                 {
-                                    updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
-                                    break; //exit while;
+                                    if (exchangeRateDay >= exchangeRateMaxOffset)
+                                    {
+                                        //attempt to lookup exchange-rate for previous day
+                                        exchangeRateDay = exchangeRateDay.AddDays(-1);
+                                        updatedRecord.InternalNotes = $"No Exchange rate found for transaction date; using rate from {exchangeRateDay.ToString("D")} instead";
+                                                                }
+                                    else
+                                    {
+                                        updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
+                                        break; //exit while;
+                                    }
+                                    
                                 }
                                 else
                                 {
@@ -671,10 +721,11 @@ namespace ManagerApp.Utils
                         var sellRecord = result.First();
 
                         var buyNFTRecord = records.First(x => x.TransactionType == "nftsell");
+                        
                         updatedRecord = new CryptoTransactionRecord();
                         updatedRecord.Sequence = buyNFTRecord.Sequence;
                         updatedRecord.Value = sellRecord.Value;
-                        updatedRecord.ValueAssetType = sellRecord.ValueAssetType;
+                        updatedRecord.ValueAssetType = buyNFTRecord.ExchangeRateCurrency;//sellRecord.ValueAssetType;
                         updatedRecord.TransactionDate = buyNFTRecord.TransactionDate.ToUniversalTime();
 
                         updatedRecord.Amount = buyNFTRecord.Amount;
@@ -685,7 +736,7 @@ namespace ManagerApp.Utils
                         updatedRecord.InternalNotes = buyNFTRecord.InternalNotes;
                         updatedRecord.TransactionType = "sell";
                         updatedRecord.ExchangeRateValue = (sellRecord.Value / buyNFTRecord.Amount);
-                        updatedRecord.ExchangeRateCurrency = sellRecord.ExchangeRateCurrency;
+                        updatedRecord.ExchangeRateCurrency = buyNFTRecord.ExchangeRateCurrency; //sellRecord.ExchangeRateCurrency;
 
                         result.Add(updatedRecord);
                     }
@@ -710,7 +761,7 @@ namespace ManagerApp.Utils
         {
             List<CryptoTransactionRecord> result = new List<CryptoTransactionRecord>();
             //group by day
-            foreach (var dailyTransactions in records.GroupBy(x => x.TransactionDate))
+            foreach (var dailyTransactions in records.GroupBy(x => x.TransactionDate.Date))
             {
                 //group buys/sells and consolidate
                 result.AddRange(ConsolidateTransactions(dailyTransactions.Where(x => x.TransactionType == "buy").ToList()));
@@ -719,7 +770,7 @@ namespace ManagerApp.Utils
             }
 
             //sort by buys 
-            result = result.OrderBy(x => x.TransactionType).ThenBy(x => x.TransactionDate).ToList();
+            result = result.OrderBy(x => x.TransactionType).ThenBy(x => x.TransactionDate.Date).ToList();
 
 
 
@@ -811,11 +862,11 @@ namespace ManagerApp.Utils
                         TaxRecord.Currency = matchedCollections.Currency;
                         TaxRecord.Name = matchedCollections.Name;
                         TaxRecord.SellAmount = sellAmount ?? 0d;
-                        TaxRecord.SellDate = DateOnly.FromDateTime(taxableTransactions.TransactionDate);
+                        TaxRecord.SellDate = taxableTransactions.TransactionDate;
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0d;
 
                         //do we apply discount
-                        if (matchedCollections.CreatedOn.AddYears(1) <= TaxRecord.SellDate)
+                        if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
                         {
                             TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d) * 0.5;
                             TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) * 0.5 (taxdiscount)";
@@ -849,11 +900,11 @@ namespace ManagerApp.Utils
                         TaxRecord.Currency = matchedCollections.Currency;
                         TaxRecord.Name = matchedCollections.Name;
                         TaxRecord.SellAmount = availableAmount;
-                        TaxRecord.SellDate = DateOnly.FromDateTime(taxableTransactions.TransactionDate);
+                        TaxRecord.SellDate = taxableTransactions.TransactionDate;
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0d;
 
                         //do we apply discount
-                        if (matchedCollections.CreatedOn.AddYears(1) <= TaxRecord.SellDate)
+                        if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
                         {
                             TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount ) * 0.5;
                             TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) * 0.5 (taxdiscount)";
@@ -884,6 +935,107 @@ namespace ManagerApp.Utils
             return result;
         }
 
+        public static List<CryptoTaxRecords> CreateCryptoTaxRecords(List<CryptoCollection> cryptoCollection, List<CryptoTransactionRecord> records, List<ExchangeRate> exchangeRates, int endYear)
+        {           
+            var endDate = new DateTime(endYear, 7, 1);
+
+            //we will be leveraging High-in First-out (HIFO)
+            var result = new List<CryptoTaxRecords>();
+            foreach (var taxableTransactions in records.Where(x => x.TransactionDate < endDate &&   x.TaxableEvent).OrderBy(x => x.TransactionDate))
+            {
+                //retrieve sell exchange rate
+                var sellExchangeRate = Convert.ToDouble(exchangeRates.FirstOrDefault(x => x.Date == taxableTransactions.TransactionDate && x.Symbol?.ToLower() == taxableTransactions?.AmountAssetType?.ToLower())?.Low);
+
+                //lookup HIFO entry
+                var shortlistedCollections = cryptoCollection.Where(x => x.CreatedOn <= DateOnly.FromDateTime(taxableTransactions.TransactionDate) && x.Name.ToLower() == taxableTransactions?.AmountAssetType?.ToLower() && x.Available > 0);
+                var sellAmount = taxableTransactions.Amount;
+                foreach (var matchedCollections in shortlistedCollections.OrderByDescending(x => x.BoughtAt))
+                {
+                    //check if current item has sufficient funds
+                    if ((matchedCollections.Available - sellAmount) >= 0)
+                    {
+                        //sufficient
+                        DateTime endOfCurrentFinancialYear = new DateTime(2022, 6, 30);
+                        //bool useRebate = (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(endOfCurrentFinancialYear));
+
+                        CryptoTaxRecords TaxRecord = new CryptoTaxRecords();
+
+                        TaxRecord.BuyPrice = matchedCollections.BoughtAt;
+                        TaxRecord.Currency = matchedCollections.Currency;
+                        TaxRecord.Name = matchedCollections.Name;
+                        TaxRecord.SellAmount = sellAmount ?? 0d;
+                        TaxRecord.SellDate = taxableTransactions.TransactionDate;
+                        TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0d;
+
+                        //do we apply discount
+                        if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
+                        {
+                            TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d) * 0.5;
+                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) * 0.5 (taxdiscount)";
+                        }
+                        else
+                        {
+                            TaxRecord.CapitalGainAmount = ((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d;
+                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}";
+                        }
+
+                        result.Add(TaxRecord);
+
+
+
+
+                        //update collection
+
+                        matchedCollections.Available = matchedCollections.Available - sellAmount ?? 0d;
+                        sellAmount = 0d;
+                        //exit foreach
+                        break;
+                    }
+                    else
+                    {
+                        //insufficient so max out, current
+                        double availableAmount = matchedCollections.Available;
+
+                        CryptoTaxRecords TaxRecord = new CryptoTaxRecords();
+
+                        TaxRecord.BuyPrice = matchedCollections.BoughtAt;
+                        TaxRecord.Currency = matchedCollections.Currency;
+                        TaxRecord.Name = matchedCollections.Name;
+                        TaxRecord.SellAmount = availableAmount;
+                        TaxRecord.SellDate = taxableTransactions.TransactionDate;
+                        TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0d;
+
+                        //do we apply discount
+                        if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
+                        {
+                            TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount) * 0.5;
+                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) * 0.5 (taxdiscount)";
+                        }
+                        else
+                        {
+                            TaxRecord.CapitalGainAmount = ((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount;
+                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}";
+                        }
+
+                        result.Add(TaxRecord);
+
+                        //update sell amount remaining
+                        sellAmount = sellAmount - availableAmount;
+
+                        //update collection
+                        matchedCollections.Available = 0d;
+                    }
+                }
+
+                if (sellAmount > 0)
+                {
+                    //there is an error; as we are trying to sell whilst there are no funds available.
+                    taxableTransactions.InternalNotes = $"Invalid transactions, insufficient funds to sell. Missing {sellAmount} {taxableTransactions?.AmountAssetType?.ToLower()} ";
+                }
+            }
+
+            return result;
+        }
     }
 
 }
