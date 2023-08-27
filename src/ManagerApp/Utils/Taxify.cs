@@ -857,7 +857,7 @@ namespace ManagerApp.Utils
                         //bool useRebate = (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(endOfCurrentFinancialYear));
 
                         CryptoTaxRecords TaxRecord = new CryptoTaxRecords();
-
+                        TaxRecord.BoughtDate = matchedCollections.CreatedOn.ToDateTime(new TimeOnly(0, 0));
                         TaxRecord.BuyPrice = matchedCollections.BoughtAt;
                         TaxRecord.Currency = matchedCollections.Currency;
                         TaxRecord.Name = matchedCollections.Name;
@@ -951,6 +951,11 @@ namespace ManagerApp.Utils
                 var sellAmount = taxableTransactions.Amount;
                 foreach (var matchedCollections in shortlistedCollections.OrderByDescending(x => x.BoughtAt))
                 {
+                    if(matchedCollections.RecordedTransactions is null)
+                    {
+                        matchedCollections.RecordedTransactions = new();
+                    }
+
                     //check if current item has sufficient funds
                     if ((matchedCollections.Available - sellAmount) >= 0)
                     {
@@ -987,6 +992,7 @@ namespace ManagerApp.Utils
                         //update collection
 
                         matchedCollections.Available = matchedCollections.Available - sellAmount ?? 0d;
+                        matchedCollections.RecordedTransactions.Add(TaxRecord);
                         sellAmount = 0d;
                         //exit foreach
                         break;
@@ -1023,6 +1029,7 @@ namespace ManagerApp.Utils
                         sellAmount = sellAmount - availableAmount;
 
                         //update collection
+                        matchedCollections.RecordedTransactions.Add(TaxRecord);
                         matchedCollections.Available = 0d;
                     }
                 }
@@ -1035,6 +1042,95 @@ namespace ManagerApp.Utils
             }
 
             return result;
+        }
+
+        public static List<CryptoWalletCollection> CalculateWalletValues(List<CryptoCollection> cryptoCollection, List<ExchangeRate> exchangeRates)
+        {
+            List<CryptoWalletCollection> result = new List<CryptoWalletCollection>();
+            foreach (var wallet in cryptoCollection.GroupBy(x=>x.Name))
+            {
+                var exchangeRateRecord = exchangeRates.Where(x => x.Symbol.ToLower() == wallet.Key.ToLower()).MaxBy(x => x.Date);
+                var exchangeCurrencyToUse = exchangeRateRecord.ExchangeCurrency;
+                Console.WriteLine($"{wallet.Key} uses exchange currency {exchangeCurrencyToUse} at {exchangeRateRecord.OpenCloseAverage}");
+                var val = new CryptoWalletCollection();
+                val.Name = wallet.Key;
+                val.CreatedOn = DateOnly.FromDateTime(exchangeRateRecord.Date);
+                
+                foreach(var grouped in wallet)
+                {
+                   // string exchangeCurrencyToUse = targetCurrency;
+                    double openCloseAverageRate = Convert.ToDouble(exchangeRateRecord.OpenCloseAverage);
+                    if (exchangeCurrencyToUse != "aud")
+                    {
+                        var exRateRecord = DistillExchangeRate(exchangeCurrencyToUse, exchangeRateRecord.Date.ToUniversalTime().Date, exchangeRates);
+                        exchangeCurrencyToUse = exRateRecord.ExchangeCurrency;
+                        openCloseAverageRate = Convert.ToDouble(exRateRecord.OpenCloseAverage);
+
+                    }                   
+                   
+                    var value = openCloseAverageRate * grouped.Available;
+
+                    val.Value+= value;
+                    val.Available+= grouped.Available;
+                    val.Currency = exchangeCurrencyToUse;
+                    val.RecordedTransactions = grouped.RecordedTransactions;
+         
+                }
+               
+                result.Add(val);
+            }
+
+            return result;
+
+           
+        }
+
+        private static ExchangeRate DistillExchangeRate(string lookupCurrency,DateTime lookupDateUTC, List<ExchangeRate> sourceExchangeRates, string currencyCodeToMatchAgainst = "aud", uint exchangeRateMaxOffsetIndays = 7)
+        {
+            ExchangeRate? returnExchangeRate = null;
+            
+           // var lookupDate = transactionRecord.TransactionDate.ToUniversalTime().Date;
+            var exchangeRateMaxOffset = lookupDateUTC.AddDays(exchangeRateMaxOffsetIndays * -1);
+            bool continueLookup = true;
+
+            //lookup exchangerate
+            while(continueLookup)
+            {
+                var exchangeRateInformation = LookupExchangeRate(sourceExchangeRates, lookupCurrency, lookupDateUTC);
+                
+                //no info returned, so let's change the lookup date to the previous date, as we are aparantly are missing data
+                if(exchangeRateInformation is null) //|| )
+                {
+                    if (lookupDateUTC >= exchangeRateMaxOffset)
+                    {
+                        lookupDateUTC = lookupDateUTC.AddDays(-1);
+                    }
+                    else // still no result, so return a not found exception
+                    {
+                        continueLookup = false;
+                        throw new Exception($"No Exchange rates available for {lookupCurrency} on {lookupDateUTC}");
+                    }
+                }
+                else if(exchangeRateInformation.ExchangeCurrency != currencyCodeToMatchAgainst)
+                {
+                    lookupCurrency = exchangeRateInformation?.ExchangeCurrency;
+                }
+                else
+                {
+                    //we have a match, so return
+                    returnExchangeRate = exchangeRateInformation;
+                    continueLookup = false;
+                }
+            }
+
+            return returnExchangeRate;
+
+        }
+
+        private static ExchangeRate LookupExchangeRate(List<ExchangeRate> exchangeRates, string symbol, DateTime exchangeDateTime)
+        {
+            return exchangeRates.Where(x => x.Symbol == symbol && x.Date == exchangeDateTime).FirstOrDefault();
+
         }
     }
 

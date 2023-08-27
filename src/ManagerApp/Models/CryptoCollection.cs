@@ -8,6 +8,6 @@
         public double BoughtAt { get; set; }
         public string Currency { get; set; }
 
-
+        public List<CryptoTaxRecords> RecordedTransactions { get; set; }
     }
 }

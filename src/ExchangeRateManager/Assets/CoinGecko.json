@@ -153,5 +153,12 @@
     "ExchangeName": "CoinGecko",
     "ExchangeSymbol": "binance-usd",
     "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "orc",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "orbit-chain",
+    "ExchangeCurrency": "aud"
   }
 ]

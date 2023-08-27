@@ -152,5 +152,75 @@
     "ExchangeName": "Sologenic",
     "ExchangeSymbol": "UtiliteX+rKDsnVfFMzdqrU8Bqno37d29L8ZW3hvrf8",
     "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "asc",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "ASC+r3qWgpz2ry3BhcRJ8JE6rxM8esrfhuKp4R",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "stx",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "STX+rSTAYKxF2K77ZLZ8GoAwTqPGaphAqMyXV",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "schmeckles",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "Schmeckles+rPxw83ZP6thv7KmG5DpAW4cDW55DZRZ9wu",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xoge",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "Xoge+rJMtvf5B3GbuFMrqybh5wYVXEH4QE8VyU1",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "xrdoge",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "XRdoge+rLqUC2eCPohYvJCEBJ77eCCqVL2uEiczjA",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "editions",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "editions+rfXwi3SqywQ2gSsvHgfdVsyZdTVM15BG7Z",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "ark",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "ARK+rf5Jzzy6oAFBJjLhokha1v8pXVgYYjee3b",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "bpm",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "BPM+rDBMvpjV6DoWvr3LqMUG8JBgd4QbBoU1E2",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "vgc",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "VGC+rwBiQxtPo7zkiSGp4PoisqN7jBwotMRh3J",
+    "ExchangeCurrency": "xrp"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "ash",
+    "ExchangeName": "Sologenic",
+    "ExchangeSymbol": "ASH+rGETqxutoKZ6VcXTE7Yh1fyaUj5pro7PuE",
+    "ExchangeCurrency": "xrp"
   }
 ]

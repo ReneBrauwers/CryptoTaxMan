@@ -454,7 +454,7 @@ else
     <HxButton Icon="@BootstrapIcon.Book" IconPlacement="ButtonIconPlacement.End" Size="ButtonSize.Small" Text="Import Transactions" CssClass="btn btn-outline-info mb-3" OnClick="@(async () =>  {inTaxMode = false;StateHasChanged();})"></HxButton>
 
     <HxDropdownButtonGroup Split="true">
-        <HxButton Icon="@BootstrapIcon.Calculator" IconPlacement="ButtonIconPlacement.Start" CssClass="btn btn-outline-success mb-3" Size="ButtonSize.Small" OnClick="@(()=> {InitializeCryptoCollection(TaxYears.First());})">Create Tax Reports</HxButton>
+        <HxButton Icon="@BootstrapIcon.Calculator" IconPlacement="ButtonIconPlacement.Start" CssClass="btn btn-outline-success mb-3" Size="ButtonSize.Small" OnClick="@(()=> {InitializeCryptoCollection(0);})">Create Tax Reports</HxButton>
         <HxDropdownToggleButton CssClass="btn btn-outline-success mb-3" Size="ButtonSize.Small">
             <span class="visually-hidden">Select tax year</span>@* OPTIONAL (for accessibility) *@
         </HxDropdownToggleButton>
@@ -511,7 +511,7 @@ else
         </table>
     }
 
-    @if(TaxTransactions is not null && TaxTransactions.Count() > 0)
+@*    @if(TaxTransactions is not null && TaxTransactions.Count() > 0)
     {
         <ul class="list-unstyled">
         @foreach (var item in TaxTransactions)
@@ -519,9 +519,73 @@ else
             <li><small>@item</small></li>
         }
         </ul>
+    }*@
+    @if(WalletCollection is not null && WalletCollection.Count > 0)
+    {
+          <div class="row mb-3">
+            @foreach (var collection in WalletCollection)
+            {
+                <div class="col-12">
+                    <HxCard>
+                        <BodyTemplate>
+                            <HxCardTitle>@collection.Name</HxCardTitle>
+                            <HxCardSubtitle CssClass="mb-2 text-muted">@collection.CreatedOn.ToString("dddd, dd MMMM yyyy")</HxCardSubtitle>
+                            <HxCardText>
+                                <div class="row">
+                                    <div class="col-auto">
+ @($"{collection.Available} {collection.Name} available @ {collection.Value.ToString("N2")} {collection.Currency}")
+                                    </div>
+                                </div>
+                                <div class="row mt-1">
+                                    <div class="col-auto">
+                                        <table class="table table-sm table-light">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Date</th>
+                                                    <th scope="col">Name</th>
+                                                    <th scope="col">Sell amount</th>
+                                                    <th scope="col">Buy price</th>
+                                                    <th scope="col">Sell price</th>
+                                                    <th scope="col">Currency</th>
+                                                    <th scope="col">Capital Gains</th>
+                                                    <th scope="col">Calculation</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @if (collection.RecordedTransactions is not null && collection.RecordedTransactions.Count > 0)
+                                                {
+                                                    @foreach (var record in collection.RecordedTransactions)
+                                                    {
+                                                        <tr>
+                                                            <th scope="row">@record.SellDate</th>
+                                                            <td>@record.Name</td>
+                                                            <td>@record.SellAmount</td>
+                                                            <td>@record.BuyPrice</td>
+                                                            <td>@record.SellPrice</td>
+                                                            <td>@record.Currency</td>
+                                                            <td>@record.CapitalGainAmount</td>
+                                                            <td>@record.Calculation</td>
+                                                        </tr>
+                                                    }
+                                                }
+                                            </tbody>
+
+                                        </table>
+                                         
+                                      
+                                      
+                                    </div>
+                                </div>
+                            </HxCardText>
+                                
+                        </BodyTemplate>
+                        </HxCard>
+                    </div>
+            }
+        </div>
     }
 
-    @if (myCryptoCollection is not null && myCryptoCollection.Count > 0)
+@*    @if (myCryptoCollection is not null && myCryptoCollection.Count > 0)
     {
         <div class="row mb-3">
             @foreach (var collection in myCryptoCollection)
@@ -537,7 +601,7 @@ else
                     </div>
             }
         </div>
-    }
+    }*@
 
 }
 
@@ -567,6 +631,7 @@ else
     private List<CryptoCollection> myCryptoCollection = new();
     private List<string> TaxTransactions = new();
     private List<CryptoTaxRecords> TaxRecords = new();
+    private List<CryptoWalletCollection> WalletCollection = new();
     private bool _showLoader = false;
 
     protected override void OnInitialized()
@@ -885,7 +950,19 @@ else
 
     private async Task InitializeCryptoCollection(int endYear)
     {
-        Console.WriteLine($"tax year: {endYear}");
+        if(endYear == 0)
+        {
+            var maxTransactionDate =  localEditableTaxDataItem.Max(x => x.TransactionDate);
+            if(maxTransactionDate.Month > 6)
+            {
+                endYear = maxTransactionDate.Year + 1;
+            }
+            else
+            {
+                endYear = maxTransactionDate.Year;
+            }
+        }
+        Console.WriteLine($"tax year: {endYear-1}/{endYear}");
 
         _showLoader = true;
         await InvokeAsync(StateHasChanged);
@@ -907,10 +984,11 @@ else
                 TaxTransactions.AddRange(taxResultString);
             }
             _showLoader = false;
-            
+
 
         }
-        
+
+        WalletCollection.AddRange(Utils.Taxify.CalculateWalletValues(myCryptoCollection, allExchangeRates));
         await InvokeAsync(StateHasChanged);
     }
 

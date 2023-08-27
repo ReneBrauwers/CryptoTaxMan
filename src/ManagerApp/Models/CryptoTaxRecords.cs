@@ -6,7 +6,9 @@ namespace ManagerApp.Models
     [DelimitedRecord(",")]
     public sealed class CryptoTaxRecords
     {
-        [FieldConverter(ConverterKind.Date, "yyyy-MM-ddTHH:mm:ss")]
+        [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")] //THH:mm:ss")]
+        public DateTime BoughtDate { get; set; }
+        [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")] //THH:mm:ss")]
         public DateTime SellDate { get; set; }
         public string Name { get; set; }
         public double SellAmount { get; set; }

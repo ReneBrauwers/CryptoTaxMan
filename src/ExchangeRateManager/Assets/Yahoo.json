@@ -176,6 +176,34 @@
   },
   {
     "Kind": "crypto",
+    "Symbol": "xem",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "xem",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "ada",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "ada",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "oxen",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "oxen",
+    "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "klay",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "klay",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
     "Symbol": "vra",
     "ExchangeName": "YahooFinance",
     "ExchangeSymbol": "vra",
