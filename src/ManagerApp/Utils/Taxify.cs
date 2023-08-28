@@ -293,12 +293,14 @@ namespace ManagerApp.Utils
 
                         //skip looking up exchange rate, if below conditions matches
 
-                        
+                       // const int MAX_ITERATIONS = 5; // Set an arbitrary number as the maximum iteration limit
+                       // int iterationCount = 0;
 
                         while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
                         {
-                            //Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
-                            var exchangeRateInformation = (sellRecord.ExchangeRateValue is null || sellRecord.ExchangeRateValue == 0 ? exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay) : null);
+                          //  iterationCount++;
+                          //  Console.WriteLine($"sell Iteration {iterationCount}");
+                            var exchangeRateInformation = (sellRecord.ExchangeRateValue is null || sellRecord.ExchangeRateValue == 0 ? exchangeRates.FirstOrDefault(x => x.Symbol.ToLower() == targetCurrency.ToLower() && x.Date == exchangeRateDay) : null);
 
                             if (exchangeRateInformation is not null && (!string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency)))
                             {
@@ -418,10 +420,13 @@ namespace ManagerApp.Utils
                     string transactionType = record.TransactionType ?? string.Empty;
                     double exchangeRate = 0d;
 
+                   // int iterationCount = 0;
                     while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
                     {
+                      //  iterationCount++;
+                      //  Console.WriteLine($"[buy] Iteration {iterationCount}");
                         // Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
-                        var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay);
+                        var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol.ToLower() == targetCurrency.ToLower() && x.Date == exchangeRateDay);
                         //var exchangeRateInformation = (record.ExchangeRateValue is null || record.ExchangeRateValue == 0 ? exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay) : null);
 
 
@@ -547,10 +552,13 @@ namespace ManagerApp.Utils
                         string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
                         double exchangeRate = 0d;
 
+                      //  int iterationCount = 0;
                         while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
                         {
+                          //  iterationCount++;
+                          //  Console.WriteLine($"nft-buy [sell] Iteration {iterationCount}");
                             //Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
-                            var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay);
+                            var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol.ToLower() == targetCurrency.ToLower() && x.Date == exchangeRateDay);
 
                             if (exchangeRateInformation is not null && (!string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency)))
                             {
@@ -656,10 +664,13 @@ namespace ManagerApp.Utils
                         string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
                         double exchangeRate = 0d;
 
+                      //  int iterationCount = 0;
                         while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
                         {
+                         //   iterationCount++;
+                         //   Console.WriteLine($"nft-sell [buy] Iteration {iterationCount}");
                             //Console.WriteLine($"look up {targetCurrency} for {exchangeRateDay}");
-                            var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol == targetCurrency && x.Date == exchangeRateDay);
+                            var exchangeRateInformation = exchangeRates.FirstOrDefault(x => x.Symbol.ToLower() == targetCurrency.ToLower() && x.Date == exchangeRateDay);
 
                             if (exchangeRateInformation is not null && (!string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency)))
                             {
@@ -868,8 +879,18 @@ namespace ManagerApp.Utils
                         //do we apply discount
                         if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
                         {
-                            TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d) * 0.5;
-                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) * 0.5 (taxdiscount)";
+                            bool useRebate = (TaxRecord.SellPrice > TaxRecord.BuyPrice);
+                            if (useRebate)
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d) * 0.5;
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) * 0.5 (50% taxdiscount)";
+                            }
+                            else
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d) ;
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) (50% taxdiscount not applicable as we have a loss)";
+                            }
+                        
                         }
                         else
                         {
@@ -895,7 +916,7 @@ namespace ManagerApp.Utils
                         double availableAmount = matchedCollections.Available;
 
                         CryptoTaxRecords TaxRecord = new CryptoTaxRecords();
-
+                        TaxRecord.BoughtDate = matchedCollections.CreatedOn.ToDateTime(new TimeOnly(0, 0));
                         TaxRecord.BuyPrice = matchedCollections.BoughtAt;
                         TaxRecord.Currency = matchedCollections.Currency;
                         TaxRecord.Name = matchedCollections.Name;
@@ -906,8 +927,18 @@ namespace ManagerApp.Utils
                         //do we apply discount
                         if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
                         {
-                            TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount ) * 0.5;
-                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) * 0.5 (taxdiscount)";
+                            bool useRebate = (TaxRecord.SellPrice > TaxRecord.BuyPrice);
+                            if (useRebate)
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount) * 0.5;
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) * 0.5 (50% taxdiscount)";
+                            }
+                            else
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount);
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) (50% taxdiscount not applicable as we have a loss)";
+                            }
+                             
                         }
                         else
                         {
@@ -964,19 +995,30 @@ namespace ManagerApp.Utils
                         //bool useRebate = (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(endOfCurrentFinancialYear));
 
                         CryptoTaxRecords TaxRecord = new CryptoTaxRecords();
-
+                        TaxRecord.BoughtDate = matchedCollections.CreatedOn.ToDateTime(new TimeOnly(0, 0));
                         TaxRecord.BuyPrice = matchedCollections.BoughtAt;
                         TaxRecord.Currency = matchedCollections.Currency;
                         TaxRecord.Name = matchedCollections.Name;
                         TaxRecord.SellAmount = sellAmount ?? 0d;
                         TaxRecord.SellDate = taxableTransactions.TransactionDate;
+                       
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0d;
 
                         //do we apply discount
                         if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
                         {
-                            TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d) * 0.5;
-                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) * 0.5 (taxdiscount)";
+                            //only apply if the sell price is less than the buy price
+                            bool useRebate = (TaxRecord.SellPrice > TaxRecord.BuyPrice);
+                            if (useRebate)
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d) * 0.5;
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) * 0.5 (50% taxdiscount)";
+                            }
+                            else
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * sellAmount ?? 0d);
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {sellAmount ?? 0d}) (50% taxdiscount not applicable as we have a loss)";
+                            }
                         }
                         else
                         {
@@ -1003,19 +1045,32 @@ namespace ManagerApp.Utils
                         double availableAmount = matchedCollections.Available;
 
                         CryptoTaxRecords TaxRecord = new CryptoTaxRecords();
-
+                        TaxRecord.BoughtDate = matchedCollections.CreatedOn.ToDateTime(new TimeOnly(0, 0));
                         TaxRecord.BuyPrice = matchedCollections.BoughtAt;
                         TaxRecord.Currency = matchedCollections.Currency;
                         TaxRecord.Name = matchedCollections.Name;
                         TaxRecord.SellAmount = availableAmount;
                         TaxRecord.SellDate = taxableTransactions.TransactionDate;
+                      
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0d;
 
                         //do we apply discount
                         if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
                         {
-                            TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount) * 0.5;
-                            TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) * 0.5 (taxdiscount)";
+                            //only apply if the sell price is less than the buy price
+                            bool useRebate = (TaxRecord.SellPrice > TaxRecord.BuyPrice);
+                            if(useRebate)
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount) * 0.5;
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) * 0.5 (50% taxdiscount)";
+                            }
+                            else
+                            {
+                                TaxRecord.CapitalGainAmount = (((taxableTransactions.ExchangeRateValue ?? 0d) - matchedCollections.BoughtAt) * availableAmount);
+                                TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0d}) - {matchedCollections.BoughtAt}) * {availableAmount}) (50% taxdiscount not applicable as we have a loss)";
+                            }
+
+                       
                         }
                         else
                         {
@@ -1047,37 +1102,46 @@ namespace ManagerApp.Utils
         public static List<CryptoWalletCollection> CalculateWalletValues(List<CryptoCollection> cryptoCollection, List<ExchangeRate> exchangeRates)
         {
             List<CryptoWalletCollection> result = new List<CryptoWalletCollection>();
+            Console.WriteLine($"{string.Join(",", cryptoCollection.Select(x=>x.Name).Distinct())}");
             foreach (var wallet in cryptoCollection.GroupBy(x=>x.Name))
             {
-                var exchangeRateRecord = exchangeRates.Where(x => x.Symbol.ToLower() == wallet.Key.ToLower()).MaxBy(x => x.Date);
-                var exchangeCurrencyToUse = exchangeRateRecord.ExchangeCurrency;
-                Console.WriteLine($"{wallet.Key} uses exchange currency {exchangeCurrencyToUse} at {exchangeRateRecord.OpenCloseAverage}");
-                var val = new CryptoWalletCollection();
-                val.Name = wallet.Key;
-                val.CreatedOn = DateOnly.FromDateTime(exchangeRateRecord.Date);
-                
-                foreach(var grouped in wallet)
+                try
                 {
-                   // string exchangeCurrencyToUse = targetCurrency;
-                    double openCloseAverageRate = Convert.ToDouble(exchangeRateRecord.OpenCloseAverage);
-                    if (exchangeCurrencyToUse != "aud")
+                    var exchangeRateRecord = exchangeRates.Where(x => x.Symbol.ToLower() == wallet.Key.ToLower()).MaxBy(x => x.Date);
+                    var exchangeCurrencyToUse = exchangeRateRecord.ExchangeCurrency;
+                    Console.WriteLine($"{wallet.Key} uses exchange currency {exchangeCurrencyToUse} at {exchangeRateRecord.OpenCloseAverage}");
+                    var val = new CryptoWalletCollection();
+                    val.Name = wallet.Key;
+                    val.CreatedOn = DateOnly.FromDateTime(exchangeRateRecord.Date);
+
+                    foreach (var grouped in wallet)
                     {
-                        var exRateRecord = DistillExchangeRate(exchangeCurrencyToUse, exchangeRateRecord.Date.ToUniversalTime().Date, exchangeRates);
-                        exchangeCurrencyToUse = exRateRecord.ExchangeCurrency;
-                        openCloseAverageRate = Convert.ToDouble(exRateRecord.OpenCloseAverage);
+                        // string exchangeCurrencyToUse = targetCurrency;
+                        double openCloseAverageRate = Convert.ToDouble(exchangeRateRecord.OpenCloseAverage);
+                        if (exchangeCurrencyToUse != "aud")
+                        {
+                            var exRateRecord = DistillExchangeRate(exchangeCurrencyToUse, exchangeRateRecord.Date.ToUniversalTime().Date, exchangeRates);
+                            exchangeCurrencyToUse = exRateRecord.ExchangeCurrency;
+                            openCloseAverageRate = Convert.ToDouble(exRateRecord.OpenCloseAverage);
 
-                    }                   
-                   
-                    var value = openCloseAverageRate * grouped.Available;
+                        }
 
-                    val.Value+= value;
-                    val.Available+= grouped.Available;
-                    val.Currency = exchangeCurrencyToUse;
-                    val.RecordedTransactions = grouped.RecordedTransactions;
-         
+                        var value = openCloseAverageRate * grouped.Available;
+
+                        val.Value += value;
+                        val.Available += grouped.Available;
+                        val.Currency = exchangeCurrencyToUse;
+                        val.RecordedTransactions = grouped.RecordedTransactions;
+                      
+                        result.Add(val);
+                    }
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine($"Error processing {wallet.Key} {ex.Message}");
                 }
                
-                result.Add(val);
+              
             }
 
             return result;
