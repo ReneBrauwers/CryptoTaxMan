@@ -99,7 +99,7 @@ namespace ExchangeAPI.Services
                         Low = low,
                         ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                         Symbol = exchangeInfo.Symbol,
-                        DataSource = new Uri($"{_client.BaseAddress}{uriPath}"),
+                        DataSource = $"{_client.BaseAddress}{uriPath}",
                     });
 
 
@@ -126,7 +126,7 @@ namespace ExchangeAPI.Services
                         Low = lowValue,
                         ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                         Symbol = exchangeInfo.Symbol,
-                        DataSource = new Uri($"{_client.BaseAddress}{usedUriPath}")
+                        DataSource = $"{_client.BaseAddress}{usedUriPath}"
 
                     };
 

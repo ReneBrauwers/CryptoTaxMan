@@ -17,7 +17,9 @@ namespace Common.Models
         public decimal OpenCloseAverage { get; set; }
         public decimal LowHighAverage { get; set; }
         public string? ExchangeCurrency { get; set; }
-        public Uri? DataSource { get; set; }
+        public string? DataSource { get; set; }
         public bool LookupOptional { get; set; }
     }
+
+  
 }

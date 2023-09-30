@@ -96,7 +96,7 @@ namespace Common.Services
                             High = marketData,
                             Low = marketData,
                             Close = marketData,
-                            DataSource = new Uri($"{_client.BaseAddress}{uriPath}"),
+                            DataSource = $"{_client.BaseAddress}{uriPath}",
                             ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                             Symbol = exchangeInfo.Symbol,
                             LowHighAverage = marketData,
@@ -188,7 +188,7 @@ namespace Common.Services
                                 Close = value,
                                 ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                                 Symbol = exchangeInfo.Symbol,
-                                DataSource = new Uri($"{_client.BaseAddress}{uriPath}"),
+                                DataSource = $"{_client.BaseAddress}{uriPath}",
                             });
 
 
@@ -227,7 +227,7 @@ namespace Common.Services
                                 Low = lowValue,
                                 ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                                 Symbol = exchangeInfo.Symbol,
-                                DataSource = new Uri($"{_client.BaseAddress}{uriPath}")
+                                DataSource = $"{_client.BaseAddress}{uriPath}"
 
                             };
 

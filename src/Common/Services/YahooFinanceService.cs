@@ -95,7 +95,7 @@ namespace ExchangeAPI.Services
                                                     //IsAccurate = true,
                                                     OpenCloseAverage = decimal.Divide(decimal.Add(record.Open ?? 0, record.Close ?? 0), 2),
                                                     LowHighAverage = decimal.Divide(decimal.Add(record.Low ?? 0, record.High ?? 0), 2),
-                                                    DataSource = new Uri($"{_client.BaseAddress}{uriPath}")
+                                                    DataSource = $"{_client.BaseAddress}{uriPath}"
                                                 };
                                             }
                                         }
@@ -174,7 +174,7 @@ namespace ExchangeAPI.Services
                                                 exRate.Symbol = exchangeInfo.Symbol;
                                                 exRate.OpenCloseAverage = decimal.Divide(decimal.Add(record.Open ?? 0, record.Close ?? 0), 2);
                                                 exRate.LowHighAverage = decimal.Divide(decimal.Add(record.Low ?? 0, record.High ?? 0), 2);
-                                                exRate.DataSource = new Uri($"{_client.BaseAddress}{uriPath}");
+                                                exRate.DataSource = $"{_client.BaseAddress}{uriPath}";
                                                 exChangeRates.Add(exRate);
                                             }
 

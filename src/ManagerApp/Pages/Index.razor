@@ -8,10 +8,15 @@
 
 @inject IJSRuntime JS
 @inject HttpClient _HttpCLient
+@inject Blazored.LocalStorage.ILocalStorageService _LocalStorage
 <PageTitle>Index</PageTitle>
 
 <h1>Rudimental crypto tax calculator</h1>
 
+@if (_localStorageInUse)
+{
+    <HxButton Text="Clear local storage" OnClick="@(async () => await ClearLocalStorage())" Color="ThemeColor.Danger" />
+}
 
 @if (!inTaxMode)
 {
@@ -444,7 +449,9 @@ else
 
         </Columns>
     </HxGrid>
-    <HxButton Icon="@BootstrapIcon.Book" IconPlacement="ButtonIconPlacement.End" Size="ButtonSize.Small" Text="Import Transactions" CssClass="btn btn-outline-info mb-3" OnClick="@(async () =>  {inTaxMode = false;StateHasChanged();})"></HxButton>
+    <HxButton Icon="@BootstrapIcon.Book" IconPlacement="ButtonIconPlacement.End" Size="ButtonSize.Small" Text="(re)import transactions" CssClass="btn btn-outline-info mb-3 p-2" OnClick="@(async () =>  {inTaxMode = false;StateHasChanged();})"></HxButton>
+
+        <HxButton Icon="@BootstrapIcon.Save2" IconPlacement="ButtonIconPlacement.End" Size="ButtonSize.Small" Text="Save crypto transaction records" CssClass="btn btn-outline-info mb-3 p-2" OnClick="@(async ()=> {await ExportCryptoTransactionRecord();})"></HxButton>
 
     <HxDropdownButtonGroup Split="true">
         <HxButton Icon="@BootstrapIcon.Calculator" IconPlacement="ButtonIconPlacement.Start" CssClass="btn btn-outline-success mb-3" Size="ButtonSize.Small" OnClick="@(()=> {InitializeCryptoCollection(0);})">Create Tax Reports</HxButton>
