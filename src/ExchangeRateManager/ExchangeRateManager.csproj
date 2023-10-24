@@ -14,6 +14,11 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="7.0.10" />
+	  <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.11" />
+	  <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="7.0.12">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +38,16 @@
     <None Update="Assets\Yahoo.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="SeedData\2015\moq.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+    <None Update="SeedData\2016\moq.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="SeedData\" />
   </ItemGroup>
 
 </Project>

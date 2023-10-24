@@ -14,7 +14,7 @@ namespace Common.Models
         public string? ExchangeName { get; set; }
         public string? ExchangeSymbol { get; set; }
         public string? ExchangeCurrency { get; set; }
-        
+        public DateTime? ExchangeRatesMissingFrom { get; set; }
 
     }
 
