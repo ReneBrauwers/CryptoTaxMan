@@ -4,19 +4,17 @@
 @using ManagerApp.Models
 @using System.Text
 @using ManagerApp.Services
+@using SqliteWasmHelper;
 @using static ManagerApp.Utils.Enums
 
 @inject IJSRuntime JS
 @inject HttpClient _HttpCLient
-@inject Blazored.LocalStorage.ILocalStorageService _LocalStorage
+@inject ISqliteWasmDbContextFactory<CryptoTaxManDbContext> _dbContextFactory
 <PageTitle>Index</PageTitle>
 
 <h1>Rudimental crypto tax calculator</h1>
 
-@if (_localStorageInUse)
-{
-    <HxButton Text="Clear local storage" OnClick="@(async () => await ClearLocalStorage())" Color="ThemeColor.Danger" />
-}
+
 
 @if (!inTaxMode)
 {

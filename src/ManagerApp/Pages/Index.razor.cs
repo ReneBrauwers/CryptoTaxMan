@@ -1,3 +1,4 @@
+using Common.Extensions;
 using Common.Models;
 using FileHelpers;
 using global::Microsoft.AspNetCore.Components;
@@ -44,10 +45,10 @@ namespace ManagerApp.Pages
         private List<Portofolio> portofolios;
 
         private string _uploadFileName = string.Empty;
-        private bool _localStorageInUse = false;
+  
         protected override void OnInitialized()
         {
-        
+
 
             int startYear = 2015;
             while (startYear <= DateTime.UtcNow.Year)
@@ -56,6 +57,423 @@ namespace ManagerApp.Pages
                 startYear++;
             }
         }
+
+        private async void UploadFile(InputFileChangeEventArgs e)
+        {
+            //Read file into stream
+            using (var ms = e.File.OpenReadStream())
+            {
+                using (TextReader reader = new StreamReader(ms))
+                {
+                    var readerText = await reader.ReadToEndAsync();
+                    using (var engine = new FileHelperAsyncEngine<CryptoTransactionRecordImport>())
+                    {
+                        using (engine.BeginReadString(readerText))
+                        {
+                            //Load file data into grid
+                            localEditableDataItem = new List<CryptoTransactionRecordImport>();
+                            localEditableDataItem.AddRange(engine.ToList());
+                            await recordsToImportGrid.RefreshDataAsync();
+                            //_showLoader = true;
+                            //StateHasChanged();
+                            //foreach (var record in engine)
+                            //{
+                            //    _importedRecords.AddRange(Utils.Taxify.Flatten(record));
+                            //}
+                        }
+
+                        _uploadFileName = e.File.Name;
+                    }
+                }
+            }
+
+            //_localStorageInUse = await _LocalStorage.ContainKeyAsync(_uploadFileName);
+            //await ExportRecords(_importedRecords);
+            //_showLoader = false;
+            //StateHasChanged();
+        }
+
+        private async Task CreateTaxRecords()
+        {
+            _showLoader = true;
+            await InvokeAsync(StateHasChanged);
+            if (localEditableDataItem.Count > 0)
+            {
+                foreach (var item in localEditableDataItem)
+                {
+                    var response = await LookupExchangeRate(item);
+                    if (response is not null && response.Count > 0)
+                    {
+                        allExchangeRates.AddRange(response);
+                    }
+                }
+            }
+
+            foreach (var record in localEditableDataItem.OrderBy(x => x.Sequence))
+            {
+                try
+                {
+                    //_progressMessage = $"processing seq: {record.Sequence.ToString()}";
+
+                    var flattenRecords = Utils.Taxify.Flatten(record);
+                    var nonNFTExchangeRateEnrichedRecords = Utils.Taxify.AddExchangeRates(flattenRecords, allExchangeRates);
+                    var NFTExchangeRateEnrichedRecords = Utils.Taxify.AddNFTExchangeRates(flattenRecords, allExchangeRates);
+                    if (nonNFTExchangeRateEnrichedRecords is not null && nonNFTExchangeRateEnrichedRecords.Count > 0)
+                    {
+                        localEditableTaxDataItem.AddRange(nonNFTExchangeRateEnrichedRecords);
+                    }
+
+                    if (NFTExchangeRateEnrichedRecords is not null && NFTExchangeRateEnrichedRecords.Count > 0)
+                    {
+                        localEditableTaxDataItem.AddRange(NFTExchangeRateEnrichedRecords);
+                    }
+
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+
+
+
+            portofolios = new();
+
+            foreach (var item in localEditableTaxDataItem)
+            {
+                //we are going to calculate the complete portofolio worth for each token
+                try
+                {
+                    bool itemExists = portofolios.Any(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
+                    if (item.TransactionType.ToUpper() == "BUY")
+                    {
+
+                        if (itemExists)
+                        {
+                            var portofolio = portofolios.FirstOrDefault(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
+                            portofolio.Amount += item.Amount ?? 0;
+                            portofolio.InvestmentValue += item.Value ?? 0;
+                            portofolio.LastUpdated = DateTime.UtcNow;
+
+                        }
+                        else
+                        {
+                            Portofolio portofolio = new();
+                            portofolio.Token = item.AmountAssetType.ToLower();
+                            portofolio.Amount = item.Amount ?? 0;
+                            portofolio.InvestmentValue = item.Value ?? 0;
+                            portofolio.InvestmentValueCurrency = item.ExchangeRateCurrency;
+                            portofolio.LastUpdated = DateTime.UtcNow;
+                            portofolios.Add(portofolio);
+                        }
+                    }
+
+                    if (item.TransactionType.ToUpper() == "SELL")
+                    {
+
+                        if (itemExists)
+                        {
+                            var portofolio = portofolios.FirstOrDefault(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
+                            portofolio.Amount -= item.Amount ?? 0;
+                            portofolio.InvestmentValue -= item.Value ?? 0;
+                            portofolio.LastUpdated = DateTime.UtcNow;
+
+                        }
+                        else
+                        {
+                            Portofolio portofolio = new();
+                            portofolio.Token = item.AmountAssetType.ToLower();
+                            portofolio.Amount = (item.Amount ?? 0) * -1;
+                            portofolio.InvestmentValue = (item.Value ?? 0) * -1;
+                            portofolio.InvestmentValueCurrency = item.ExchangeRateCurrency;
+                            portofolio.LastUpdated = DateTime.UtcNow;
+                            portofolios.Add(portofolio);
+                        }
+                    }
+
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+
+            }
+
+            if (localEditableTaxDataItem.Count > 0)
+            {
+                inTaxMode = true;
+                if (taxRecordGrid is null)
+                {
+                    taxRecordGrid = new();
+                    await InvokeAsync(StateHasChanged);
+                }
+
+                //store in localstorage
+                //if (!_localStorageInUse)
+                //{
+                //    await _LocalStorage.SetItemAsync(_uploadFileName, localEditableTaxDataItem);
+                //}
+
+                await taxRecordGrid.RefreshDataAsync();
+            }
+
+            _showLoader = false;
+            await InvokeAsync(StateHasChanged);
+
+        }
+        //private async Task CreateTaxRecordsAlt()
+        //{
+        //    if (localEditableDataItem.Count > 0)
+        //    {
+
+
+        //        //Flatten
+        //        localEditableTaxDataItem = new List<CryptoTransactionRecord>();
+
+        //        if (!_localStorageInUse)
+        //        {
+
+
+        //            _showLoader = true;
+        //            await InvokeAsync(StateHasChanged);
+        //            allExchangeRates = new List<ExchangeRate>();
+        //            List<string> symbols = new();
+        //            symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyIn).Distinct());
+        //            symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyOut).Distinct());
+        //            symbols.Add("aud");
+        //            symbols.Add("usd");
+        //            // List<int> years = new();
+        //            foreach (var symbol in symbols.Distinct())
+        //            {
+        //                if (!string.IsNullOrWhiteSpace(symbol))
+        //                {
+        //                    List<int> years = new()
+        //                {
+        //                    localEditableDataItem?.Where(x => x.CurrencyIn == symbol).MinBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0,
+        //                    localEditableDataItem?.Where(x => x.CurrencyOut == symbol).MinBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0,
+        //                    localEditableDataItem?.Where(x => x.CurrencyIn == symbol).MaxBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0,
+        //                    localEditableDataItem?.Where(x => x.CurrencyOut == symbol).MaxBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0
+        //                };
+
+        //                    //remove all items from years where years is 0
+        //                    years.RemoveAll(x => x == 0);
+        //                    if (years.Count > 0)
+        //                    {
+        //                        var startYear = years.Min();
+        //                        var endYear = years.Max();
+        //                        var response = await LoadCryptoExchangeRates(symbol.ToLower(), startYear, endYear);
+        //                        if (response is not null && response.Count > 0)
+        //                        {
+        //                            allExchangeRates.AddRange(response);
+        //                        }
+        //                    }
+        //                }
+        //            }
+
+        //            foreach (var record in localEditableDataItem.OrderBy(x => x.Sequence))
+        //            {
+        //                try
+        //                {
+        //                    //_progressMessage = $"processing seq: {record.Sequence.ToString()}";
+
+        //                    var flattenRecords = Utils.Taxify.Flatten(record);
+        //                    var nonNFTExchangeRateEnrichedRecords = Utils.Taxify.AddExchangeRates(flattenRecords, allExchangeRates);
+        //                    var NFTExchangeRateEnrichedRecords = Utils.Taxify.AddNFTExchangeRates(flattenRecords, allExchangeRates);
+        //                    if (nonNFTExchangeRateEnrichedRecords is not null && nonNFTExchangeRateEnrichedRecords.Count > 0)
+        //                    {
+        //                        localEditableTaxDataItem.AddRange(nonNFTExchangeRateEnrichedRecords);
+        //                    }
+
+        //                    if (NFTExchangeRateEnrichedRecords is not null && NFTExchangeRateEnrichedRecords.Count > 0)
+        //                    {
+        //                        localEditableTaxDataItem.AddRange(NFTExchangeRateEnrichedRecords);
+        //                    }
+
+
+
+
+
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    Console.WriteLine(ex.Message);
+        //                }
+        //            }
+        //        }
+        //        else
+        //        {
+        //            localEditableTaxDataItem = await _LocalStorage.GetItemAsync<List<CryptoTransactionRecord>>(_uploadFileName);
+        //        }
+
+        //        portofolios = new();
+        //        foreach (var item in localEditableTaxDataItem)
+        //        {
+        //            //we are going to calculate the complete portofolio worth for each token
+        //            try
+        //            {
+        //                bool itemExists = portofolios.Any(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
+        //                if (item.TransactionType.ToUpper() == "BUY")
+        //                {
+
+        //                    if (itemExists)
+        //                    {
+        //                        var portofolio = portofolios.FirstOrDefault(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
+        //                        portofolio.Amount += item.Amount ?? 0;
+        //                        portofolio.InvestmentValue += item.Value ?? 0;
+        //                        portofolio.LastUpdated = DateTime.UtcNow;
+
+        //                    }
+        //                    else
+        //                    {
+        //                        Portofolio portofolio = new();
+        //                        portofolio.Token = item.AmountAssetType.ToLower();
+        //                        portofolio.Amount = item.Amount ?? 0;
+        //                        portofolio.InvestmentValue = item.Value ?? 0;
+        //                        portofolio.InvestmentValueCurrency = item.ExchangeRateCurrency;
+        //                        portofolio.LastUpdated = DateTime.UtcNow;
+        //                        portofolios.Add(portofolio);
+        //                    }
+        //                }
+
+        //                if (item.TransactionType.ToUpper() == "SELL")
+        //                {
+
+        //                    if (itemExists)
+        //                    {
+        //                        var portofolio = portofolios.FirstOrDefault(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
+        //                        portofolio.Amount -= item.Amount ?? 0;
+        //                        portofolio.InvestmentValue -= item.Value ?? 0;
+        //                        portofolio.LastUpdated = DateTime.UtcNow;
+
+        //                    }
+        //                    else
+        //                    {
+        //                        Portofolio portofolio = new();
+        //                        portofolio.Token = item.AmountAssetType.ToLower();
+        //                        portofolio.Amount = (item.Amount ?? 0) * -1;
+        //                        portofolio.InvestmentValue = (item.Value ?? 0) * -1;
+        //                        portofolio.InvestmentValueCurrency = item.ExchangeRateCurrency;
+        //                        portofolio.LastUpdated = DateTime.UtcNow;
+        //                        portofolios.Add(portofolio);
+        //                    }
+        //                }
+
+
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                Console.WriteLine(ex.Message);
+        //            }
+
+        //        }
+
+        //        if (localEditableTaxDataItem.Count > 0)
+        //        {
+        //            inTaxMode = true;
+        //            if (taxRecordGrid is null)
+        //            {
+        //                taxRecordGrid = new();
+        //                await InvokeAsync(StateHasChanged);
+        //            }
+
+        //            //store in localstorage
+        //            if (!_localStorageInUse)
+        //            {
+        //                await _LocalStorage.SetItemAsync(_uploadFileName, localEditableTaxDataItem);
+        //            }
+
+        //            await taxRecordGrid.RefreshDataAsync();
+        //        }
+
+        //        _showLoader = false;
+        //        await InvokeAsync(StateHasChanged);
+        //    }
+        //}
+
+        private async Task<List<ExchangeRate>> LookupExchangeRate(CryptoTransactionRecordImport lookup)
+        {
+            if (lookup is null)
+            {
+                return new List<ExchangeRate>();
+            }
+
+            List<ExchangeRate> cryptoExchangeRates = new List<ExchangeRate>();
+
+            List<(string CurrencyIn, string CurrencyOut, DateTime TransactionDate)> searchKeys = new List<(string CurrencyIn, string CurrencyOut, DateTime TransactionDate)>();
+            using (var dbContext = await _dbContextFactory.CreateDbContextAsync())
+            {
+
+                //construct pk lookup
+
+
+                if (!string.IsNullOrWhiteSpace(lookup.CurrencyIn))
+                {
+                    searchKeys.Add((lookup.CurrencyIn, "aud", lookup.TransactionDate.FromSpecifiedToUTC("Australia/Sydney").Date));
+                }
+
+                if (!string.IsNullOrWhiteSpace(lookup.CurrencyOut))
+                {
+                    searchKeys.Add((lookup.CurrencyOut, "aud", lookup.TransactionDate.FromSpecifiedToUTC("Australia/Sydney").Date));
+                }
+
+                if (!string.IsNullOrEmpty(lookup.FeeCurrency))
+                {
+                    searchKeys.Add((lookup.FeeCurrency, "aud", lookup.TransactionDate.FromSpecifiedToUTC("Australia/Sydney").Date));
+                }
+
+
+
+                //get all matching exchange rates 
+                foreach (var key in searchKeys)
+                {
+                    var result = await dbContext.ExchangeRates.FindAsync(key);
+                    if (result is not null)
+                    {
+                        cryptoExchangeRates.Add(result);
+                    }
+
+                }
+
+
+            }
+
+            return cryptoExchangeRates;
+        }
+
+        private async Task<List<ExchangeRate>> LoadCryptoExchangeRates(string symbol, int startYear = 2015, int endYear = 2022)
+        {
+            var currentIterationYear = startYear;
+            List<ExchangeRate> cryptoExchangeRateCollection = new List<ExchangeRate>();
+            using (var dbContext = await _dbContextFactory.CreateDbContextAsync())
+            {
+
+
+                while (currentIterationYear <= endYear)
+                {
+                    try
+                    {
+                        var cryptoExchangeRates = await _HttpCLient.GetFromJsonAsync<List<ExchangeRate>>($"/config/{currentIterationYear}/{symbol}.json");
+                        if (cryptoExchangeRates is not null && cryptoExchangeRates.Count > 0)
+                        {
+                            cryptoExchangeRateCollection.AddRange(cryptoExchangeRates);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
+                    }
+                    finally
+                    {
+                        currentIterationYear++;
+                    }
+                }
+            }
+
+            return cryptoExchangeRateCollection;
+        }
+
 
         private async Task SetTradeAction(ChangeEventArgs e)
         {
@@ -120,244 +538,17 @@ namespace ManagerApp.Pages
             await recordsToImportGrid.RefreshDataAsync();
         }
 
-        private async void UploadFile(InputFileChangeEventArgs e)
-        {
-            //Read file into stream
-            using (var ms = e.File.OpenReadStream())
-            {
-                using (TextReader reader = new StreamReader(ms))
-                {
-                    var readerText = await reader.ReadToEndAsync();
-                    using (var engine = new FileHelperAsyncEngine<CryptoTransactionRecordImport>())
-                    {
-                        using (engine.BeginReadString(readerText))
-                        {
-                            //Load file data into grid
-                            localEditableDataItem = new List<CryptoTransactionRecordImport>();
-                            localEditableDataItem.AddRange(engine.ToList());
-                            await recordsToImportGrid.RefreshDataAsync();
-                            //_showLoader = true;
-                            //StateHasChanged();
-                            //foreach (var record in engine)
-                            //{
-                            //    _importedRecords.AddRange(Utils.Taxify.Flatten(record));
-                            //}
-                        }
-
-                        _uploadFileName = e.File.Name;
-                    }
-                }
-            }
-
-            _localStorageInUse = await _LocalStorage.ContainKeyAsync(_uploadFileName);
-            //await ExportRecords(_importedRecords);
-            //_showLoader = false;
-            //StateHasChanged();
-        }
-
-        private async Task ClearLocalStorage()
-        {
-            await _LocalStorage.ClearAsync();
-            _localStorageInUse = false;
-            StateHasChanged();
-        }
-
-        private async Task CreateTaxRecords()
-        {
-            if (localEditableDataItem.Count > 0)
-            {
-                
-                
-                //Flatten
-                localEditableTaxDataItem = new List<CryptoTransactionRecord>();
-
-                if (!_localStorageInUse)
-                {
 
 
-                    _showLoader = true;
-                    await InvokeAsync(StateHasChanged);
-                    allExchangeRates = new List<ExchangeRate>();
-                    List<string> symbols = new();
-                    symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyIn).Distinct());
-                    symbols.AddRange(localEditableDataItem.Select(x => x.CurrencyOut).Distinct());
-                    symbols.Add("aud");
-                    symbols.Add("usd");
-                    // List<int> years = new();
-                    foreach (var symbol in symbols.Distinct())
-                    {
-                        if (!string.IsNullOrWhiteSpace(symbol))
-                        {
-                            List<int> years = new()
-                        {
-                            localEditableDataItem?.Where(x => x.CurrencyIn == symbol).MinBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0,
-                            localEditableDataItem?.Where(x => x.CurrencyOut == symbol).MinBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0,
-                            localEditableDataItem?.Where(x => x.CurrencyIn == symbol).MaxBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0,
-                            localEditableDataItem?.Where(x => x.CurrencyOut == symbol).MaxBy(x => x.TransactionDate)?.TransactionDate.Year ?? 0
-                        };
-
-                            //remove all items from years where years is 0
-                            years.RemoveAll(x => x == 0);
-                            if (years.Count > 0)
-                            {
-                                var startYear = years.Min();
-                                var endYear = years.Max();
-                                var response = await LoadCryptoExchangeRates(symbol.ToLower(), startYear, endYear);
-                                if (response is not null && response.Count > 0)
-                                {
-                                    allExchangeRates.AddRange(response);
-                                }
-                            }
-                        }
-                    }
-
-                    foreach (var record in localEditableDataItem.OrderBy(x => x.Sequence))
-                    {
-                        try
-                        {
-                            //_progressMessage = $"processing seq: {record.Sequence.ToString()}";
-
-                            var flattenRecords = Utils.Taxify.Flatten(record);
-                            var nonNFTExchangeRateEnrichedRecords = Utils.Taxify.AddExchangeRates(flattenRecords, allExchangeRates);
-                            var NFTExchangeRateEnrichedRecords = Utils.Taxify.AddNFTExchangeRates(flattenRecords, allExchangeRates);
-                            if (nonNFTExchangeRateEnrichedRecords is not null && nonNFTExchangeRateEnrichedRecords.Count > 0)
-                            {
-                                localEditableTaxDataItem.AddRange(nonNFTExchangeRateEnrichedRecords);
-                            }
-
-                            if (NFTExchangeRateEnrichedRecords is not null && NFTExchangeRateEnrichedRecords.Count > 0)
-                            {
-                                localEditableTaxDataItem.AddRange(NFTExchangeRateEnrichedRecords);
-                            }
+        //private async Task ClearLocalStorage()
+        //{
+        //    await _LocalStorage.ClearAsync();
+        //    _localStorageInUse = false;
+        //    StateHasChanged();
+        //}
 
 
 
-
-
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                        }
-                    }
-                }
-                else
-                {
-                    localEditableTaxDataItem = await _LocalStorage.GetItemAsync<List<CryptoTransactionRecord>>(_uploadFileName);
-                }
-
-                portofolios = new();
-                foreach (var item in localEditableTaxDataItem)
-                {
-                    //we are going to calculate the complete portofolio worth for each token
-                    try
-                    {
-                        bool itemExists = portofolios.Any(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
-                        if (item.TransactionType.ToUpper() == "BUY")
-                        {
-
-                            if (itemExists)
-                            {
-                                var portofolio = portofolios.FirstOrDefault(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
-                                portofolio.Amount += item.Amount ?? 0;
-                                portofolio.InvestmentValue += item.Value ?? 0;
-                                portofolio.LastUpdated = DateTime.UtcNow;
-
-                            }
-                            else
-                            {
-                                Portofolio portofolio = new();
-                                portofolio.Token = item.AmountAssetType.ToLower();
-                                portofolio.Amount = item.Amount ?? 0;
-                                portofolio.InvestmentValue = item.Value ?? 0;
-                                portofolio.InvestmentValueCurrency = item.ExchangeRateCurrency;
-                                portofolio.LastUpdated = DateTime.UtcNow;
-                                portofolios.Add(portofolio);
-                            }
-                        }
-
-                        if (item.TransactionType.ToUpper() == "SELL")
-                        {
-
-                            if (itemExists)
-                            {
-                                var portofolio = portofolios.FirstOrDefault(x => x.Token.ToLower() == item.AmountAssetType.ToLower() && x.InvestmentValueCurrency.ToLower() == item.ExchangeRateCurrency.ToLower());
-                                portofolio.Amount -= item.Amount ?? 0;
-                                portofolio.InvestmentValue -= item.Value ?? 0;
-                                portofolio.LastUpdated = DateTime.UtcNow;
-
-                            }
-                            else
-                            {
-                                Portofolio portofolio = new();
-                                portofolio.Token = item.AmountAssetType.ToLower();
-                                portofolio.Amount = (item.Amount ?? 0) * -1;
-                                portofolio.InvestmentValue = (item.Value ?? 0) * -1;
-                                portofolio.InvestmentValueCurrency = item.ExchangeRateCurrency;
-                                portofolio.LastUpdated = DateTime.UtcNow;
-                                portofolios.Add(portofolio);
-                            }
-                        }
-
-                        
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex.Message);
-                    }
-
-                }
-
-                if (localEditableTaxDataItem.Count > 0)
-                {
-                    inTaxMode = true;
-                    if (taxRecordGrid is null)
-                    {
-                        taxRecordGrid = new();
-                        await InvokeAsync(StateHasChanged);
-                    }
-
-                    //store in localstorage
-                    if (!_localStorageInUse)
-                    {
-                        await _LocalStorage.SetItemAsync(_uploadFileName, localEditableTaxDataItem);
-                    }
-
-                    await taxRecordGrid.RefreshDataAsync();
-                }
-
-                _showLoader = false;
-                await InvokeAsync(StateHasChanged);
-            }
-        }
-
-
-        private async Task<List<ExchangeRate>> LoadCryptoExchangeRates(string symbol, int startYear = 2015, int endYear = 2022)
-        {
-            var currentIterationYear = startYear;
-            List<ExchangeRate> cryptoExchangeRateCollection = new List<ExchangeRate>();
-            while (currentIterationYear <= endYear)
-            {
-                try
-                {
-                    var cryptoExchangeRates = await _HttpCLient.GetFromJsonAsync<List<ExchangeRate>>($"/config/{currentIterationYear}/{symbol}.json");
-                    if (cryptoExchangeRates is not null && cryptoExchangeRates.Count > 0)
-                    {
-                        cryptoExchangeRateCollection.AddRange(cryptoExchangeRates);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"error loading file /config/{currentIterationYear}/{symbol}.json -> {ex.Message}");
-                }
-                finally
-                {
-                    currentIterationYear++;
-                }
-            }
-
-            return cryptoExchangeRateCollection;
-        }
 
         private async Task ExportRecords(List<CryptoTaxRecords> records)
         {
@@ -502,7 +693,7 @@ namespace ManagerApp.Pages
             _showLoader = true;
             await InvokeAsync(StateHasChanged);
             myCryptoCollection = CryptoCollectionFactory.CreateCryptoCollection(localEditableTaxDataItem);
-            if(TaxRecords is not null && TaxRecords.Count > 0)
+            if (TaxRecords is not null && TaxRecords.Count > 0)
             {
                 TaxRecords.Clear();
             }

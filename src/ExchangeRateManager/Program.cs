@@ -1,19 +1,12 @@
 ﻿using Common.Interfaces;
-using ExchangeAPI.Services;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
-using Polly;
-using Polly.Extensions.Http;
-using Common.Services;
 using Common.Models;
-using System.Linq;
-using Microsoft.Extensions.Logging;
-using System.Security.Cryptography.X509Certificates;
-using Microsoft.EntityFrameworkCore;
+using Common.Services;
+using ExchangeAPI.Services;
 using ExchangeRateManager;
-using Microsoft.AspNetCore.Http;
-using System.Diagnostics.Metrics;
-using System.Diagnostics.CodeAnalysis;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Polly;
 
 public class Program
 {

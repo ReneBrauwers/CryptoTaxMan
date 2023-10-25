@@ -1099,6 +1099,44 @@ namespace ManagerApp.Utils
             return result;
         }
 
+
+        public static CryptoTransactionRecord ValidateCryptoTransactionRecords(List<CryptoTransactionRecord> transactions)
+        {
+
+            var TOLERANCE = 1e-9;  // Tolerance to handle floating-point inaccuracies
+            // A dictionary to hold available amounts for each token
+            Dictionary<string, double> tokenBalances = new Dictionary<string, double>();
+
+            foreach (var transaction in transactions)
+            {
+                
+                double amount = transaction.TransactionType?.ToUpper() == "SELL" ? Math.Abs(transaction.Amount??0) : transaction.Amount??0;
+
+                if (transaction.TransactionType?.ToUpper() == "BUY")
+                {
+                    if (tokenBalances.ContainsKey(transaction.AmountAssetType))
+                    {
+                        tokenBalances[transaction.AmountAssetType] += amount;
+                    }
+                    else
+                    {
+                        tokenBalances[transaction.AmountAssetType] = amount;
+                    }
+                }
+                else if (transaction.TransactionType.ToUpper() == "SELL")
+                {
+                    if (!tokenBalances.ContainsKey(transaction.AmountAssetType) || tokenBalances[transaction.AmountAssetType] - amount < -TOLERANCE)
+                    {
+                        // Return the sequence number of the invalid transaction
+                        return transaction;
+                    }
+                    tokenBalances[transaction.AmountAssetType] -= amount;
+                }
+            }
+
+            // Return null if all transactions are valid
+            return null;
+        }
         public static List<CryptoWalletCollection> CalculateWalletValues(List<CryptoCollection> cryptoCollection, List<ExchangeRate> exchangeRates)
         {
             List<CryptoWalletCollection> result = new List<CryptoWalletCollection>();
