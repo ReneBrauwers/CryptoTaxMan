@@ -349,17 +349,17 @@ namespace TaxCalculator.Pages
                 //construct pk lookup
 
 
-                if (!string.IsNullOrWhiteSpace(lookup.CurrencyIn))
+                if (!string.IsNullOrWhiteSpace(lookup.CurrencyIn) && lookup.CurrencyIn != "aud")
                 {
                     searchKeys.Add((lookup.TransactionDate.FromSpecifiedToUTC("Australia/Sydney").Date,lookup.CurrencyIn, "aud"));
                 }
 
-                if (!string.IsNullOrWhiteSpace(lookup.CurrencyOut))
+                if (!string.IsNullOrWhiteSpace(lookup.CurrencyOut) && lookup.CurrencyOut != "aud")
                 {
                     searchKeys.Add((lookup.TransactionDate.FromSpecifiedToUTC("Australia/Sydney").Date,lookup.CurrencyOut, "aud"));
                 }
 
-                if (!string.IsNullOrEmpty(lookup.FeeCurrency))
+                if (!string.IsNullOrEmpty(lookup.FeeCurrency) && lookup.FeeCurrency != "aud")
                 {
                     searchKeys.Add((lookup.TransactionDate.FromSpecifiedToUTC("Australia/Sydney").Date,lookup.FeeCurrency, "aud"));
                 }
@@ -377,6 +377,10 @@ namespace TaxCalculator.Pages
                     if (result is not null)
                     {
                         cryptoExchangeRates.Add(result);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{key.TransactionDate}, {key.CurrencyIn},{key.ExchangeCurrency} not found");
                     }
                 }
                 catch(Exception ex)
