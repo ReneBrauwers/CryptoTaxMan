@@ -348,3 +348,7 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+/src/ExchangeRateManagerAPI/Assets/exchangerates.db
+/src/ExchangeRateManagerAPI/Assets/exchangeRates.db-shm
+/src/ExchangeRateManagerAPI/Assets/exchangeRates.db-wal
+/src/ManagerApp/wwwroot/config/exchangerates.db
