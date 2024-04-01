@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	<WasmBuildNative>true</WasmBuildNative>
@@ -16,9 +16,9 @@
 
   <ItemGroup>
     <PackageReference Include="FileHelpers" Version="3.5.2" />
-    <PackageReference Include="Havit.Blazor.Components.Web.Bootstrap" Version="4.2.5" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="7.0.13" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.13" PrivateAssets="all" />
+    <PackageReference Include="Havit.Blazor.Components.Web.Bootstrap" Version="4.6.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.3" PrivateAssets="all" />
     <PackageReference Include="SqliteWasmHelper" Version="1.2.0-beta-gf8e1db1f31" />
 	 
   </ItemGroup>

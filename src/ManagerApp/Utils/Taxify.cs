@@ -107,22 +107,24 @@ namespace ManagerApp.Utils
                         //{
                         //    useProvidedExchangeRate = true;
                         //}
+                        if ((record.AmountIn - record.AmountOut) > 0)
+                        {
+                            var sellRecord = new CryptoTransactionRecord();
 
-                        var sellRecord = new CryptoTransactionRecord();
 
+                            sellRecord.TaxableEvent = true;
+                            sellRecord.Amount = (record.AmountIn - record.AmountOut);
+                            sellRecord.AmountAssetType = record.CurrencyIn;
+                            sellRecord.Sequence = record.Sequence;
+                            sellRecord.TransactionDate = record.TransactionDate;
+                            sellRecord.TransactionType = "sell";
+                            sellRecord.IsNFT = false;
+                            sellRecord.InternalNotes = "Transfer fees";
+                            //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                            //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
 
-                        sellRecord.TaxableEvent = true;
-                        sellRecord.Amount = (record.AmountIn - record.AmountOut);
-                        sellRecord.AmountAssetType = record.CurrencyIn;
-                        sellRecord.Sequence = record.Sequence;
-                        sellRecord.TransactionDate = record.TransactionDate;
-                        sellRecord.TransactionType = "sell";
-                        sellRecord.IsNFT = false;
-                        sellRecord.InternalNotes = "Transfer fees";
-                        //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
-                        //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
-
-                        taxifiedRecords.Add(sellRecord);
+                            taxifiedRecords.Add(sellRecord);
+                        }
 
                         break;
                     }

@@ -103,22 +103,24 @@ namespace TaxCalculator.Utils
                         //{
                         //    useProvidedExchangeRate = true;
                         //}
+                        if (record.AmountIn - record.AmountOut > 0)
+                        {
+                            var sellRecord = new CryptoTransactionRecord();
 
-                        var sellRecord = new CryptoTransactionRecord();
 
+                            sellRecord.TaxableEvent = true;
+                            sellRecord.Amount = record.AmountIn - record.AmountOut;
+                            sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
+                            sellRecord.Sequence = record.Sequence;
+                            sellRecord.TransactionDate = record.TransactionDate;
+                            sellRecord.TransactionType = "sell";
+                            sellRecord.IsNFT = false;
+                            sellRecord.InternalNotes = "Transfer fees";
+                            //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                            //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
 
-                        sellRecord.TaxableEvent = true;
-                        sellRecord.Amount = record.AmountIn - record.AmountOut;
-                        sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
-                        sellRecord.Sequence = record.Sequence;
-                        sellRecord.TransactionDate = record.TransactionDate;
-                        sellRecord.TransactionType = "sell";
-                        sellRecord.IsNFT = false;
-                        sellRecord.InternalNotes = "Transfer fees";
-                        //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
-                        //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
-
-                        taxifiedRecords.Add(sellRecord);
+                            taxifiedRecords.Add(sellRecord);
+                        }
 
                         break;
                     }
@@ -732,7 +734,7 @@ namespace TaxCalculator.Utils
                         updatedRecord = new CryptoTransactionRecord();
                         updatedRecord.Sequence = buyNFTRecord.Sequence;
                         updatedRecord.Value = sellRecord.Value;
-                        updatedRecord.ValueAssetType = buyNFTRecord.ExchangeRateCurrency;//sellRecord.ValueAssetType;
+                        updatedRecord.ValueAssetType = buyNFTRecord.ExchangeRateCurrency??sellRecord.ValueAssetType;
                         updatedRecord.TransactionDate = buyNFTRecord.TransactionDate.ToUniversalTime();
 
                         updatedRecord.Amount = buyNFTRecord.Amount;
@@ -743,7 +745,7 @@ namespace TaxCalculator.Utils
                         updatedRecord.InternalNotes = buyNFTRecord.InternalNotes;
                         updatedRecord.TransactionType = "sell";
                         updatedRecord.ExchangeRateValue = sellRecord.Value / buyNFTRecord.Amount;
-                        updatedRecord.ExchangeRateCurrency = buyNFTRecord.ExchangeRateCurrency; //sellRecord.ExchangeRateCurrency;
+                        updatedRecord.ExchangeRateCurrency = buyNFTRecord.ExchangeRateCurrency??sellRecord.ExchangeRateCurrency;
 
                         result.Add(updatedRecord);
                     }
@@ -962,12 +964,14 @@ namespace TaxCalculator.Utils
             return result;
         }
 
-        public static List<CryptoTaxRecords> CreateCryptoTaxRecords(List<CryptoCollection> cryptoCollection, List<CryptoTransactionRecord> records, List<ExchangeRate> exchangeRates, int endYear)
+        public static CryptoResult CreateCryptoTaxRecords(List<CryptoCollection> cryptoCollection, List<CryptoTransactionRecord> records, List<ExchangeRate> exchangeRates, int endYear)
         {
-            var endDate = new DateTime(endYear, 7, 1);
+            var endDate = new DateTime(endYear, 7, 1);         
+            var result = new List<CryptoTaxRecords>();
+            var unsoldCrypto = new List<CryptoCollection>();
+            var aggregatedUnsoldCrypto = new List<CryptoCollection>();
 
             //we will be leveraging High-in First-out (HIFO)
-            var result = new List<CryptoTaxRecords>();
             foreach (var taxableTransactions in records.Where(x => x.TransactionDate < endDate && x.TaxableEvent).OrderBy(x => x.TransactionDate))
             {
                 //retrieve sell exchange rate
@@ -1092,7 +1096,48 @@ namespace TaxCalculator.Utils
                 }
             }
 
-            return result;
+            // After all transactions are processed, group the remaining unsold crypto by buying date
+            unsoldCrypto = cryptoCollection
+                .Where(x => x.Available > 0)
+                .GroupBy(x => x.CreatedOn)
+                .Select(grp => new CryptoCollection
+                {
+                    // Assuming CryptoCollection has a constructor that can aggregate the necessary information
+                    CreatedOn = grp.Key,
+                    Name = grp.First().Name, // Assuming all items in the group have the same Name
+                    Available = grp.Sum(x => x.Available),
+                    BoughtAt = grp.First().BoughtAt, // This might need to be averaged if different
+                    Currency = grp.First().Currency, // Assuming all items in the group have the same Currency
+                                                     // ... other properties
+                })
+                .ToList();
+
+            // After all transactions are processed, group the remaining unsold crypto by buying date
+            unsoldCrypto = cryptoCollection.Where(x => x.Available > 0).ToList();
+
+            aggregatedUnsoldCrypto = unsoldCrypto
+                .GroupBy(x => new { x.Name, x.Currency })
+                .Select(grp => new CryptoCollection
+                {
+                    // Since we don't have a single CreatedOn date, we could either pick the earliest or just leave it out
+                    CreatedOn = grp.Min(x => x.CreatedOn),
+                    Name = grp.Key.Name,
+                    Currency = grp.Key.Currency,
+                    Available = grp.Sum(x => x.Available),
+                    BoughtAt = grp.Sum(x => x.BoughtAt * x.Available) / grp.Sum(x => x.Available), // Weighted average
+                                                                                                   // ... other properties as needed
+                })
+                .ToList();
+
+            // Prepare the final result
+            CryptoResult finalResult = new CryptoResult
+            {
+                TaxRecords = result,
+                UnsoldCrypto = unsoldCrypto,
+                AggregatedUnsoldCrypto = aggregatedUnsoldCrypto
+            };
+
+            return finalResult;
         }
 
         public static List<CryptoWalletCollection> CalculateWalletValues(List<CryptoCollection> cryptoCollection, List<ExchangeRate> exchangeRates)
@@ -1103,33 +1148,44 @@ namespace TaxCalculator.Utils
             {
                 try
                 {
-                    var exchangeRateRecord = exchangeRates.Where(x => x.Symbol.ToLower() == wallet.Key.ToLower()).MaxBy(x => x.Date);
-                    var exchangeCurrencyToUse = exchangeRateRecord.ExchangeCurrency;
-                    Console.WriteLine($"{wallet.Key} uses exchange currency {exchangeCurrencyToUse} at {exchangeRateRecord.OpenCloseAverage}");
-                    var val = new CryptoWalletCollection();
-                    val.Name = wallet.Key;
-                    val.CreatedOn = DateOnly.FromDateTime(exchangeRateRecord.Date);
+                    var exchangeRateRecord = exchangeRates.Where(x => x.Symbol?.ToLower() == wallet.Key.ToLower()).MaxBy(x => x.Date);
 
-                    foreach (var grouped in wallet)
+                    //if no exchange rate found, use default
+                    if (exchangeRateRecord is not null)
                     {
-                        // string exchangeCurrencyToUse = targetCurrency;
-                        double openCloseAverageRate = Convert.ToDouble(exchangeRateRecord.OpenCloseAverage);
-                        if (exchangeCurrencyToUse != "aud")
+
+
+                        var exchangeCurrencyToUse = exchangeRateRecord?.ExchangeCurrency;
+                        Console.WriteLine($"{wallet.Key} uses exchange currency {exchangeCurrencyToUse} at {exchangeRateRecord?.OpenCloseAverage}");
+                        var val = new CryptoWalletCollection();
+                        val.Name = wallet.Key;
+                        val.CreatedOn = DateOnly.FromDateTime(exchangeRateRecord.Date);
+
+                        foreach (var grouped in wallet)
                         {
-                            var exRateRecord = DistillExchangeRate(exchangeCurrencyToUse, exchangeRateRecord.Date.ToUniversalTime().Date, exchangeRates);
-                            exchangeCurrencyToUse = exRateRecord.ExchangeCurrency;
-                            openCloseAverageRate = Convert.ToDouble(exRateRecord.OpenCloseAverage);
+                            // string exchangeCurrencyToUse = targetCurrency;
+                            double openCloseAverageRate = Convert.ToDouble(exchangeRateRecord.OpenCloseAverage);
+                            if (exchangeCurrencyToUse != "aud")
+                            {
+                                var exRateRecord = DistillExchangeRate(exchangeCurrencyToUse, exchangeRateRecord.Date.ToUniversalTime().Date, exchangeRates);
+                                exchangeCurrencyToUse = exRateRecord.ExchangeCurrency;
+                                openCloseAverageRate = Convert.ToDouble(exRateRecord.OpenCloseAverage);
 
+                            }
+
+                            var value = openCloseAverageRate * grouped.Available;
+
+                            val.Value += value;
+                            val.Available += grouped.Available;
+                            val.Currency = exchangeCurrencyToUse;
+                            val.RecordedTransactions = grouped.RecordedTransactions;
+
+                            result.Add(val);
                         }
-
-                        var value = openCloseAverageRate * grouped.Available;
-
-                        val.Value += value;
-                        val.Available += grouped.Available;
-                        val.Currency = exchangeCurrencyToUse;
-                        val.RecordedTransactions = grouped.RecordedTransactions;
-
-                        result.Add(val);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"No exchange rate found for {wallet.Key}");
                     }
                 }
                 catch (Exception ex)
@@ -1144,6 +1200,52 @@ namespace TaxCalculator.Utils
 
 
         }
+
+
+        public static List<CryptoWalletInfo> CalculateWalletValue(List<CryptoCollection> cryptoCollection, List<ExchangeRate> exchangeRates)
+        {
+            List<CryptoWalletInfo> result = new List<CryptoWalletInfo>();
+            
+            foreach (var wallet in cryptoCollection)
+            {
+                var walletInfo = new CryptoWalletInfo();
+                var walletDate = wallet.CreatedOn.ToDateTime(new TimeOnly(0, 0));
+                try
+                {
+                    var exchangeRateRecord = exchangeRates.Where(x => x.Symbol?.ToLower() == wallet.Name.ToLower() && x.Date == walletDate).FirstOrDefault();
+                    if(exchangeRateRecord is not null)
+                    {
+                        
+                        
+
+                       
+                     
+
+
+                        walletInfo.Currency = exchangeRateRecord?.ExchangeCurrency;
+                        walletInfo.BuyPrice = Convert.ToDouble(exchangeRateRecord.OpenCloseAverage);
+                     
+                        walletInfo.Token = wallet.Name;
+                        walletInfo.Available = wallet.Available;
+                         
+
+                            result.Add(walletInfo);
+                        }
+                  
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error processing {wallet.Name} {ex.Message}");
+                }
+
+
+            }
+
+            return result;
+
+
+        }
+
 
         public static void ValidateCryptoTransactionRecords(List<CryptoTransactionRecord> transactions)
         {

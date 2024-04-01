@@ -4,6 +4,7 @@ namespace TaxCalculator.Models
 {
     [IgnoreFirst(1)]
     [DelimitedRecord(",")]
+    [IgnoreEmptyLines]
     public class CryptoTransactionRecordImport
     {
         public int Sequence = 0;

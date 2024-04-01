@@ -68,30 +68,11 @@ public class Program
         // List<ExchangeRate> rawResponses = new List<ExchangeRate>();
         List<ExchangeInformationRetrievalFailure> exchangeInformationRetrieveFailures = new List<ExchangeInformationRetrievalFailure>();
 
-        var configDirectory = _config["exchangeConfigStoreLocation"];
-        // var loadFromDisk = Convert.ToBoolean(_config["loadFromDisk"]);
-        //  var rawResponsesOnDiskLocation = Path.Combine(configDirectory, "rawResponses.json");
-        //   DirectoryInfo dirInfo = new DirectoryInfo(configDirectory);
-
-        //if (loadFromDisk)
-        //{
-
-        // if (File.Exists(rawResponsesOnDiskLocation))
-        // {
-        //     rawResponses = System.Text.Json.JsonSerializer.Deserialize<List<ExchangeRate>>(File.ReadAllText(rawResponsesOnDiskLocation));
-        //  }
-        // }
-
-
-        // if (rawResponses is null || rawResponses.Count == 0)
-        // {
-        //  loadFromDisk = false;
+        //var configDirectory = _config["exchangeConfigStoreLocation"];
+   
         foreach (var exchangeGroup in exchangeInformation.GroupBy(x => x.ExchangeName))
         {
 
-
-            //var existingFiles = dirInfo.GetFiles("*.json", SearchOption.AllDirectories).Select(x => x.Name);
-            //var excludedExchangeInfo = exchangeGroup.Where(x => existingFiles.Contains(string.Concat(x.ExchangeName.ToLower(), "_", x.ExchangeSymbol, "_", x.ExchangeCurrency,".json")));
             foreach (var exchangeInfo in exchangeGroup)//.Except(excludedExchangeInfo))
             {
 
@@ -212,34 +193,7 @@ public class Program
         var additionalConversions = ConvertToTargetCurrency(app, "aud");
         await AddExchangeRates(app, additionalConversions);
 
-       // foreach (var item in additionalConversions)
-      //  {
-      //      await AddExchangeRates(app, new List<ExchangeRate> { item });
-      //  }
-
-        ////save to disk
-        //if (rawResponses?.Count > 0)
-        //{
-        //    rawResponses.GroupBy(x=>x.Symbol).ToList().ForEach(x =>
-        //    {
-        //        var fileName = string.Concat(x.Key, ".json");
-        //        var filePath = Path.Combine(configDirectory,"raw", fileName);
-        //        if(!Directory.Exists(Path.Combine(configDirectory, "raw")))
-        //        {
-        //            Directory.CreateDirectory(Path.Combine(configDirectory, "raw"));
-        //        }
-
-        //        File.WriteAllText(filePath, System.Text.Json.JsonSerializer.Serialize(x.ToList()));
-        //    });
-
-        //}
-
-        // }
-
-
-
-        //var fNameRawResponsesMissing = "missing_exchangerates.json";
-        //File.WriteAllText(Path.Combine(dirInfo.FullName, fNameRawResponsesMissing), System.Text.Json.JsonSerializer.Serialize(exchangeInformationRetrieveFailures));
+     
         Console.WriteLine("Press any key to exit...");
         Console.ReadLine();
     }
@@ -262,6 +216,7 @@ public class Program
         services.AddDbContext<CryptoTaxManDbContext>(options =>
             options.UseSqlite(_config.GetConnectionString("DefaultConnection")));
 
+        
         services.AddSingleton<IAsyncPolicy<HttpResponseMessage>>(Policy.HandleResult<HttpResponseMessage>(r => r.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             .WaitAndRetryAsync(10, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
         services.AddHttpClient<IYahooFinance, YahooFinanceService>().SetHandlerLifetime(TimeSpan.FromMinutes(5));//.SetHandlerLifetime(TimeSpan.FromMinutes(5)).AddPolicyHandler(GetRetryPolicy());
@@ -565,15 +520,23 @@ public class Program
             .Where(x => x.Symbol == exchangeInfo.Symbol && x.ExchangeCurrency == exchangeInfo.ExchangeCurrency)
             .Max(x => (DateTime?)x.Date);  // Cast to nullable DateTime and get Max
 
-         
-        //if last date + 1 is smaller than today then we need to get the missing dates
-        if (lastDate?.AddDays(1).Date < DateTime.UtcNow.Date)
+        //if lastDate is null then set the date to defaultDateTime
+        if (lastDate is null)
         {
-            exchangeInfo.ExchangeRatesMissingFrom = lastDate?.AddDays(1) ?? defaultDateTime;
+            exchangeInfo.ExchangeRatesMissingFrom = defaultDateTime;
         }
         else
         {
-            exchangeInfo.ExchangeRatesMissingFrom = null;
+
+            //if last date + 1 is smaller than today then we need to get the missing dates
+            if (lastDate?.AddDays(1).Date < DateTime.UtcNow.Date)
+            {
+                exchangeInfo.ExchangeRatesMissingFrom = lastDate?.AddDays(1) ?? defaultDateTime;
+            }
+            else
+            {
+                exchangeInfo.ExchangeRatesMissingFrom = null;
+            }
         }
          
 

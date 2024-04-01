@@ -401,6 +401,8 @@ namespace ManagerApp.Pages
 
             List<ExchangeRate> cryptoExchangeRates = new List<ExchangeRate>();
 
+
+
             List<(string CurrencyIn, string CurrencyOut, DateTime TransactionDate)> searchKeys = new List<(string CurrencyIn, string CurrencyOut, DateTime TransactionDate)>();
             using (var dbContext = await _dbContextFactory.CreateDbContextAsync())
             {

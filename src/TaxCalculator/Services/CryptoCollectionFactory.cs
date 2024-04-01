@@ -21,5 +21,23 @@ namespace TaxCalculator.Services
 
             return result;
         }
+
+        public static List<CryptoCollection> CreateCryptoCollection(List<CryptoTransactionRecord> records, string tokenName)
+        {
+            var result = new List<CryptoCollection>();
+            foreach (var buyRecords in records.Where(x => x.TransactionType == "buy" && x.AmountAssetType?.ToUpper() == tokenName.ToUpper()).OrderBy(x => x.TransactionDate))
+            {
+                result.Add(new CryptoCollection()
+                {
+                    CreatedOn = DateOnly.FromDateTime(buyRecords.TransactionDate),
+                    Available = buyRecords?.Amount ?? 0d,
+                    Name = buyRecords?.AmountAssetType ?? Guid.NewGuid().ToString(),
+                    BoughtAt = buyRecords?.ExchangeRateValue ?? 0d,
+                    Currency = buyRecords?.ExchangeRateCurrency ?? "??"
+                });
+            }
+
+            return result;
+        }
     }
 }

@@ -18,6 +18,7 @@ namespace TaxCalculator.Pages
         private HxGrid<CryptoTransactionRecord>? taxRecordGrid;
         private HxModal? recordAddModal;
         private bool isEditMode = false;
+        private bool _previewTexReport = false;
         private string InName { get; set; } = "Amount (in)";
         private string InCurrency { get; set; } = "Currency (in)";
         private string OutName { get; set; } = "Amount (out)";
@@ -25,6 +26,7 @@ namespace TaxCalculator.Pages
 
         private bool inTaxMode = false;
         private List<int> TaxYears { get; set; } = new();
+        private string _selectedToken = string.Empty;
 
         private List<ExchangeRate> allExchangeRates = new();
         private TradeAction selectedTradeAction = TradeAction.not_defined;
@@ -37,7 +39,7 @@ namespace TaxCalculator.Pages
         private IEnumerable<string> TradeTypes = Enum.GetNames(typeof(TradeType)).ToList();
         private List<CryptoCollection> myCryptoCollection = new();
         private List<string> TaxTransactions = new();
-        private List<CryptoTaxRecords> TaxRecords = new();
+        private CryptoResult _cryptoResults = new();
         private List<CryptoWalletCollection> WalletCollection = new();
         private bool _showLoader = false;
         private string _progressMessage = string.Empty;
@@ -487,7 +489,15 @@ namespace TaxCalculator.Pages
         }
 
 
-
+        private async Task ShowWallet(string currency)
+        {
+            //CalculateWalletValue
+            _selectedToken = currency;
+            //var walletCollection = CryptoCollectionFactory.CreateCryptoCollection(localEditableTaxDataItem,currency);
+            //_walletInformation = Utils.Taxify.CalculateWalletValue(walletCollection, allExchangeRates.Where(x=>x.Symbol?.ToLower() == currency?.ToLower()).ToList());
+            StateHasChanged();
+            
+        }
         //private async Task ClearLocalStorage()
         //{
         //    await _LocalStorage.ClearAsync();
@@ -641,17 +651,20 @@ namespace TaxCalculator.Pages
             _showLoader = true;
             await InvokeAsync(StateHasChanged);
             myCryptoCollection = CryptoCollectionFactory.CreateCryptoCollection(localEditableTaxDataItem);
-            if (TaxRecords is not null && TaxRecords.Count > 0)
+            if (_cryptoResults is not null && _cryptoResults.TaxRecords is not null && _cryptoResults.TaxRecords.Count > 0)
             {
-                TaxRecords.Clear();
+                _cryptoResults.TaxRecords.Clear();
             }
             //var consolidatedView = Utils.Taxify.DailyConsolidation(localEditableTaxDataItem);
             //Console.WriteLine($"consolidated count: {consolidatedView.Count()} vs original count: {localEditableDataItem.Count()}");
-            TaxRecords.AddRange(Utils.Taxify.CreateCryptoTaxRecords(myCryptoCollection, localEditableTaxDataItem, allExchangeRates, endYear));
-            if (TaxRecords.Count > 0)
+
+            //var calculatedResults = Utils.Taxify.CreateCryptoTaxRecords(myCryptoCollection, localEditableTaxDataItem, allExchangeRates, endYear);
+
+            _cryptoResults = Utils.Taxify.CreateCryptoTaxRecords(myCryptoCollection, localEditableTaxDataItem, allExchangeRates, endYear);
+            if (_cryptoResults.TaxRecords.Count > 0)
             {
 
-                var taxResultString = TaxRecords.Select(x =>
+                var taxResultString = _cryptoResults.TaxRecords.Select(x =>
                 {
                     return $"on {x.SellDate} sold {x.SellAmount} of {x.Name}, bought at {x.BuyPrice} and sold for {x.SellPrice}, capital gains result {x.CapitalGainAmount}";
                 }).ToList();
@@ -663,7 +676,7 @@ namespace TaxCalculator.Pages
                 _showLoader = false;
             }
 
-            WalletCollection.AddRange(Utils.Taxify.CalculateWalletValues(myCryptoCollection, allExchangeRates));
+          //  WalletCollection.AddRange(Utils.Taxify.CalculateWalletValues(myCryptoCollection, allExchangeRates));
             await InvokeAsync(StateHasChanged);
         }
     }

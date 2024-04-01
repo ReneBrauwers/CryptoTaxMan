@@ -12,4 +12,14 @@
 
 
     }
+
+    public sealed class CryptoWalletInfo
+    {
+        public DateTime CreatedOn { get; set; }
+       
+        public string Token { get; set; }
+        public double Available { get; set; }
+        public double BuyPrice { get; set; }
+        public string Currency { get; set; }
+    }
 }

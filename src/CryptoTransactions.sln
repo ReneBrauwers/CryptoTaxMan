@@ -9,7 +9,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ManagerApp", "ManagerApp\Ma
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ExchangeRateManager", "ExchangeRateManager\ExchangeRateManager.csproj", "{00E8FF15-199B-4C9E-A021-386268C30D09}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaxCalculator", "TaxCalculator\TaxCalculator.csproj", "{BCC472BF-4B3C-49D9-BE4E-A682B50D1AD5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TaxCalculator", "TaxCalculator\TaxCalculator.csproj", "{BCC472BF-4B3C-49D9-BE4E-A682B50D1AD5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExchangeRateManagerAPI", "ExchangeRateManagerAPI\ExchangeRateManagerAPI.csproj", "{15EB54A5-5610-4F1F-9200-14A1E486E2CF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csproj", "{325B1BBD-050B-4E9C-B216-24BBD9723D00}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +37,14 @@ Global
 		{BCC472BF-4B3C-49D9-BE4E-A682B50D1AD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BCC472BF-4B3C-49D9-BE4E-A682B50D1AD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BCC472BF-4B3C-49D9-BE4E-A682B50D1AD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15EB54A5-5610-4F1F-9200-14A1E486E2CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15EB54A5-5610-4F1F-9200-14A1E486E2CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15EB54A5-5610-4F1F-9200-14A1E486E2CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15EB54A5-5610-4F1F-9200-14A1E486E2CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{325B1BBD-050B-4E9C-B216-24BBD9723D00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{325B1BBD-050B-4E9C-B216-24BBD9723D00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{325B1BBD-050B-4E9C-B216-24BBD9723D00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{325B1BBD-050B-4E9C-B216-24BBD9723D00}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
