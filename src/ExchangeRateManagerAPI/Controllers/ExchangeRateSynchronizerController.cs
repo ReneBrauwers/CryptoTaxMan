@@ -20,6 +20,8 @@ namespace ExchangeRateManagerAPI.Controllers
         [HttpPost]
         public IActionResult StartSynchronisation()
         {
+            //var r = _syncService.ExecuteSequentialApiCalls();
+            //return Ok(r);
             var taskId = _syncService.StartNewTask(async () =>
             {
                 // Adjust to call the new method for executing sequential API calls
@@ -37,7 +39,7 @@ namespace ExchangeRateManagerAPI.Controllers
 
             if (!isCompleted)
             {
-                return Accepted(Url.Action(nameof(CheckSynchronisationTask), new { taskId }));
+                return Accepted(Url.Action(nameof(CheckSynchronisationTask), new { taskId, _syncService.StatusMessage }));
             }
 
             return Ok(result);

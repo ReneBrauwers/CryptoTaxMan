@@ -48,29 +48,23 @@ namespace ExchangeRateManagerAPI.Services
             return taskId;
         }
 
-
-        public async Task<string> ExecuteRecreateAndRestoreFromFiles(string restorePath)
+        public async Task<string> ExecuteImportAndRestoreFromFiles(string restorePath)
         {
-            if(string.IsNullOrWhiteSpace(restorePath))
+            if (string.IsNullOrWhiteSpace(restorePath))
             {
                 restorePath = Path.Combine(_environment.ContentRootPath, "Assets/Restore");
             }
 
-            int totalRecordsInserted =0;
+            int totalRecordsInserted = 0;
             using var dbContext = _dbContextFactory.CreateDbContext();
             try
             {
-                // Delete the existing database
-                await dbContext.Database.EnsureDeletedAsync();
-
-                // Create a new database
-                await dbContext.Database.EnsureCreatedAsync();
-
+               
 
                 //list all subfolders which are actually years ensure to store them in a List<int> sorted small to large
-                var yearFolders = Directory.GetDirectories(restorePath); 
+                var yearFolders = Directory.GetDirectories(restorePath);
 
-                
+
                 foreach (var year in yearFolders)
                 {
                     //list all subfolders which are actually months ensure to store them in a List<int> sorted small to large
@@ -82,9 +76,9 @@ namespace ExchangeRateManagerAPI.Services
                         foreach (var file in sqlFiles)
                         {
                             var sql = await System.IO.File.ReadAllTextAsync(file);
-                         
+
                             totalRecordsInserted += await dbContext.Database.ExecuteSqlRawAsync(sql);
-                           
+
                         }
                     }
                 }
@@ -96,6 +90,41 @@ namespace ExchangeRateManagerAPI.Services
             }
 
             return $"{totalRecordsInserted} rows inserted";
+
+        }
+
+        public async Task<string> ExecuteRecreateAndImportRestoreFromFiles(string restorePath)
+        {
+            //if(string.IsNullOrWhiteSpace(restorePath))
+            //{
+            //    restorePath = Path.Combine(_environment.ContentRootPath, "Assets/Restore");
+            //}
+
+            //int totalRecordsInserted =0;
+            using (var dbContext = _dbContextFactory.CreateDbContext())
+            {
+                try
+                {
+                    // Delete the existing database
+                    await dbContext.Database.EnsureDeletedAsync();
+
+                    // Create a new database
+                    await dbContext.Database.EnsureCreatedAsync();
+
+
+                    //list all subfolders which are actually years ensure to store them in a List<int> sorted small to large
+
+                }
+                catch (Exception ex)
+                {
+                    // Handle exceptions appropriately
+                    throw new InvalidOperationException("An error occurred while executing the API calls.", ex);
+                }
+
+                return await ExecuteImportAndRestoreFromFiles(restorePath);
+            }
+
+            
              
         }
 
@@ -127,7 +156,7 @@ namespace ExchangeRateManagerAPI.Services
                     foreach (var rate in exchangeRateGroup)
                     {
                         //2015-01-02 00:00:00
-                        stringBuilder.AppendLine($"INSERT INTO ExchangeRates (Symbol, Date, ExchangeCurrency, Open, Close, Low, High, OpenCloseAverage, LowHighAverage, DataSource, LookupOptional) VALUES ('{rate.Symbol}', '{rate.Date.ToString("yyyy-MM-dd HH:mm:ss")}', '{rate.ExchangeCurrency}', '{rate.Open}', '{rate.Close}','{rate.Low}','{rate.High}','{rate.OpenCloseAverage}','{rate.LowHighAverage}','{rate.DataSource}',{rate.LookupOptional});");
+                        stringBuilder.AppendLine($"INSERT INTO ExchangeRates (Symbol, Date, ExchangeCurrency, Open, Close, Low, High, OpenCloseAverage, LowHighAverage, DataSource, LookupOptional) VALUES ('{rate.Symbol.ToLower()}', '{rate.Date.ToString("yyyy-MM-dd HH:mm:ss")}', '{rate.ExchangeCurrency}', '{rate.Open}', '{rate.Close}','{rate.Low}','{rate.High}','{rate.OpenCloseAverage}','{rate.LowHighAverage}','{rate.DataSource}',{rate.LookupOptional});");
                         totalRecordsInserted++;
                       
                     }

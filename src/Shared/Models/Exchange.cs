@@ -31,5 +31,6 @@ namespace Shared.Models
     {
         public DateTime Date { get; set; }
         public bool IsDateFromQuery { get; set; }
+        public string Comments { get; set; } = string.Empty;
     }
 }

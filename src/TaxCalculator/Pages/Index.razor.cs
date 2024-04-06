@@ -9,6 +9,7 @@ using System.Text;
 using TaxCalculator.Models;
 using static TaxCalculator.Utils.Enums;
 using TaxCalculator.Services;
+using System.Net.Http;
 
 namespace TaxCalculator.Pages
 {
@@ -49,11 +50,15 @@ namespace TaxCalculator.Pages
         private string _uploadFileName = string.Empty;
         private MarkupString messageArea;
 
+        private HttpClient _httpClient;
+
         [Inject] 
         IJSRuntime JS { get;set; }
 
         [Inject]
-        CryptoTaxManDbContext _dbContext { get; set; }
+        IHttpClientFactory _httpClientFactory{ get; set; }
+        [Inject]
+        IConfiguration _config { get; set; }
         protected override void OnInitialized()
         {
 
@@ -64,6 +69,9 @@ namespace TaxCalculator.Pages
                 TaxYears.Add(startYear);
                 startYear++;
             }
+            var endPoint = _config.GetValue<string>("ExchangeRateManagerEndPoint") ?? "https://localhost:7188/";
+            _httpClient = _httpClientFactory.CreateClient("ExchangeRateInfo");
+            _httpClient.BaseAddress = new Uri(endPoint);
         }
 
         private async void UploadFile(InputFileChangeEventArgs e)
@@ -350,7 +358,6 @@ namespace TaxCalculator.Pages
 
                 //construct pk lookup
 
-
                 if (!string.IsNullOrWhiteSpace(lookup.CurrencyIn) && lookup.CurrencyIn != "aud")
                 {
                     searchKeys.Add((lookup.TransactionDate.FromSpecifiedToUTC("Australia/Sydney").Date,lookup.CurrencyIn, "aud"));
@@ -367,15 +374,14 @@ namespace TaxCalculator.Pages
                 }
 
 
-
+                
                 //get all matching exchange rates 
                 foreach (var key in searchKeys)
                 {
                 try
                 {
-                   
-                    var compositeKey = new object[] {  key.TransactionDate, key.CurrencyIn, key.ExchangeCurrency };
-                    var result = await _dbContext.ExchangeRates.FindAsync(compositeKey);
+                    
+                    var result = await _httpClient.GetFromJsonAsync<ExchangeRate>($"/ExchangeRateInformation?transactionDate={key.TransactionDate.ToString("yyyy-MM-dd")}&currencyIn={key.CurrencyIn.ToLower()}&exchangeCurrency={key.ExchangeCurrency.ToLower()}");
                     if (result is not null)
                     {
                         cryptoExchangeRates.Add(result);

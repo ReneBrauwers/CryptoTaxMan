@@ -1,7 +1,7 @@
 using Havit.Blazor.Components.Web;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.EntityFrameworkCore;
+ 
 
 
 namespace TaxCalculator
@@ -26,11 +26,9 @@ namespace TaxCalculator
 
             builder.Services.AddLogging();
 
-
-            // Add DbContext to the DI container
-            builder.Services.AddDbContext<CryptoTaxManDbContext>(options =>
-                options.UseSqlite(config.GetConnectionString("DefaultConnection")));
-
+            //Add http client
+            builder.Services.AddHttpClient();
+             
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.

@@ -13,9 +13,20 @@ namespace TaxCalculator.Utils
         /// <returns>List of Sell and Buy crypto transactions</returns>
         public static List<CryptoTransactionRecord> Flatten(CryptoTransactionRecordImport record)
         {
+         
             List<CryptoTransactionRecord> taxifiedRecords = new List<CryptoTransactionRecord>();
 
-            switch (record.TransactionType.ToLower())
+            if(string.IsNullOrEmpty(record.TransactionType))
+            {
+               var errorRecord = new CryptoTransactionRecord
+               {
+                   InternalNotes = "Transaction type not provided",
+                   TransactionDate = record.TransactionDate,
+                   Sequence = record.Sequence
+               };
+            }
+
+            switch (record.TransactionType?.ToLower())
             {
 
                 case "buy":

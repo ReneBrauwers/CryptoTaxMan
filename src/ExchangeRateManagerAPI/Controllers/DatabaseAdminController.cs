@@ -39,6 +39,22 @@ namespace ExchangeRateManagerAPI.Controllers
             
         }
 
+        [HttpPost("StartImporExchangeRateData")]
+        public IActionResult StartImporExchangeRateData()
+        {
+            //var result = await _adminService.ExecuteRecreateAndRestoreFromFiles(string.Empty);
+            // return Ok(result);
+            var taskId = _adminService.StartNewTask(async () =>
+            {
+                // Adjust to call the new method for executing sequential API calls
+                return await _adminService.ExecuteImportAndRestoreFromFiles(string.Empty);
+            });
+
+            var checkUrl = Url.Action(nameof(CheckSynchronisationTask), new { taskId });
+            return Accepted(checkUrl);
+        }
+
+
         [HttpPost("StartRecreateAndRestoreDatabase")]
         public  IActionResult StartRecreateAndRestoreDatabase()
         {
@@ -47,7 +63,7 @@ namespace ExchangeRateManagerAPI.Controllers
             var taskId = _adminService.StartNewTask(async () =>
             {
                 // Adjust to call the new method for executing sequential API calls
-                return await _adminService.ExecuteRecreateAndRestoreFromFiles(string.Empty);
+                return await _adminService.ExecuteRecreateAndImportRestoreFromFiles(string.Empty);
             });
 
             var checkUrl = Url.Action(nameof(CheckSynchronisationTask), new { taskId });

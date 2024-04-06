@@ -94,7 +94,7 @@ namespace ExchangeRateManagerAPI.Services
                                                     //IsAccurate = true,
                                                     OpenCloseAverage = decimal.Divide(decimal.Add(record.Open ?? 0, record.Close ?? 0), 2),
                                                     LowHighAverage = decimal.Divide(decimal.Add(record.Low ?? 0, record.High ?? 0), 2),
-                                                    DataSource = $"{_client.BaseAddress}{uriPath}"
+                                                    DataSource = "YahooFinance"
                                                 };
                                             }
                                         }
@@ -173,7 +173,7 @@ namespace ExchangeRateManagerAPI.Services
                                                 exRate.Symbol = exchangeInfo.Symbol;
                                                 exRate.OpenCloseAverage = decimal.Divide(decimal.Add(record.Open ?? 0, record.Close ?? 0), 2);
                                                 exRate.LowHighAverage = decimal.Divide(decimal.Add(record.Low ?? 0, record.High ?? 0), 2);
-                                                exRate.DataSource = $"{_client.BaseAddress}{uriPath}";
+                                                exRate.DataSource = "YahooFinance";
                                                 exChangeRates.Add(exRate);
                                             }
 

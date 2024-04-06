@@ -213,10 +213,10 @@ public class Program
 
 
         // Add DbContext to the DI container
-        services.AddDbContext<CryptoTaxManDbContext>(options =>
-            options.UseSqlite(_config.GetConnectionString("DefaultConnection")));
+        services.AddDbContextFactory<CryptoTaxManDbContext>(options =>
+options.UseMySql(_config.GetConnectionString("DefaultConnection"), ServerVersion.AutoDetect(_config.GetConnectionString("DefaultConnection"))));
 
-        
+
         services.AddSingleton<IAsyncPolicy<HttpResponseMessage>>(Policy.HandleResult<HttpResponseMessage>(r => r.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             .WaitAndRetryAsync(10, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
         services.AddHttpClient<IYahooFinance, YahooFinanceService>().SetHandlerLifetime(TimeSpan.FromMinutes(5));//.SetHandlerLifetime(TimeSpan.FromMinutes(5)).AddPolicyHandler(GetRetryPolicy());

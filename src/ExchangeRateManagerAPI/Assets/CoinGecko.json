@@ -167,5 +167,14 @@
     "ExchangeName": "CoinGecko",
     "ExchangeSymbol": "jupiter-exchange-solana",
     "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dovu",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "dovu-2",
+    "ExchangeCurrency": "aud"
   }
+
+  
 ]

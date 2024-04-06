@@ -94,7 +94,7 @@ namespace ExchangeRateManagerAPI.Services
                             High = marketData,
                             Low = marketData,
                             Close = marketData,
-                            DataSource = $"{_client.BaseAddress}{uriPath}",
+                            DataSource = "Coingecko",
                             ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                             Symbol = exchangeInfo.Symbol,
                             LowHighAverage = marketData,
@@ -131,6 +131,13 @@ namespace ExchangeRateManagerAPI.Services
             var epochStart = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             var epochTo = toDate.Date == DateTime.UtcNow.Date ? (int)(toDate - epochStart).TotalSeconds : (int)(toDate.AddDays(1) - epochStart).TotalSeconds;
             //var epochTo = (int)(toDate.AddDays(1) - epochStart).TotalSeconds;
+
+            //if fromdate is more than 365 days ago, we will only get the last 365 days of data
+            if (fromDate < DateTime.UtcNow.Date.AddYears(-1))
+            {
+                fromDate = DateTime.UtcNow.Date.AddYears(-1);
+            }
+
             var epochFrom = (int)(fromDate - epochStart).TotalSeconds;
             var uriPath = string.Empty;
 
@@ -186,7 +193,7 @@ namespace ExchangeRateManagerAPI.Services
                                 Close = value,
                                 ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                                 Symbol = exchangeInfo.Symbol,
-                                DataSource = $"{_client.BaseAddress}{uriPath}",
+                                DataSource = "Coingecko",
                             });
 
 
@@ -225,7 +232,7 @@ namespace ExchangeRateManagerAPI.Services
                                 Low = lowValue,
                                 ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                                 Symbol = exchangeInfo.Symbol,
-                                DataSource = $"{_client.BaseAddress}{uriPath}"
+                                DataSource = "Coingecko"
 
                             };
 

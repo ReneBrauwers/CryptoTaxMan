@@ -97,7 +97,7 @@ namespace ExchangeRateManagerAPI.Services
                         Low = low,
                         ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                         Symbol = exchangeInfo.Symbol,
-                        DataSource = $"{_client.BaseAddress}{uriPath}",
+                        DataSource = "Sologenic",
                     });
 
 
@@ -124,7 +124,7 @@ namespace ExchangeRateManagerAPI.Services
                         Low = lowValue,
                         ExchangeCurrency = exchangeInfo.ExchangeCurrency,
                         Symbol = exchangeInfo.Symbol,
-                        DataSource = $"{_client.BaseAddress}{usedUriPath}"
+                        DataSource = "Sologenic"
 
                     };
 
