@@ -4,6 +4,7 @@ using ExchangeRateManagerAPI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExchangeRateManagerAPI.Migrations
 {
     [DbContext(typeof(CryptoTaxManDbContext))]
-    partial class CryptoTaxManDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240408003255_UpdateCryptoUserTransactionEntity")]
+    partial class UpdateCryptoUserTransactionEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -29,9 +32,6 @@ namespace ExchangeRateManagerAPI.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Sequence"));
-
-                    b.Property<int>("TransactionType")
-                        .HasColumnType("int");
 
                     b.Property<decimal?>("Amount")
                         .HasColumnType("decimal(65,30)");
@@ -60,6 +60,9 @@ namespace ExchangeRateManagerAPI.Migrations
                     b.Property<DateTime?>("TransactionDate")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("TransactionType")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("UpdatedOn")
                         .HasColumnType("datetime(6)");
 
@@ -72,16 +75,13 @@ namespace ExchangeRateManagerAPI.Migrations
                     b.Property<string>("ValueAssetType")
                         .HasColumnType("longtext");
 
-                    b.HasKey("Sequence", "TransactionType");
+                    b.HasKey("Sequence");
 
                     b.HasIndex("Amount")
                         .HasDatabaseName("Idx_Amount");
 
                     b.HasIndex("AmountAssetType")
                         .HasDatabaseName("Idx_AmountAssetType");
-
-                    b.HasIndex("Sequence")
-                        .HasDatabaseName("Idx_Sequence");
 
                     b.HasIndex("TransactionDate")
                         .HasDatabaseName("Idx_TransactionDate");

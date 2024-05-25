@@ -238,6 +238,27 @@
     "ExchangeCurrency": "usd"
   },
   {
+    "Kind": "crypto",
+    "Symbol": "jup",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "JUP29210",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "dovu",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "dovu",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "sauce",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "sauce",
+    "ExchangeCurrency": "usd"
+  },
+  {
     "Kind": "fiat",
     "Symbol": "aud",
     "ExchangeName": "YahooFinance",

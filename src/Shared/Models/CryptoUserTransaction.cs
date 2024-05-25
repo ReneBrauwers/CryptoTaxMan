@@ -1,4 +1,5 @@
-﻿using Shared.Enums;
+﻿using FileHelpers;
+using Shared.Enums;
 using System.Text.Json.Serialization;
 
 namespace Shared.Models
@@ -6,20 +7,24 @@ namespace Shared.Models
     public class CryptoUserTransaction
     {
         public int Sequence { get; set; }
+        [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")]
         public DateTime? TransactionDate { get; set; }
+        public bool TaxableEvent { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
-        public TransactionAssetType TransactionType { get; set; }
-        public decimal? AmountIn { get; set; }
-        public string? CurrencyIn { get; set; }
-        public decimal? AmountOut { get; set; }
-        public string? CurrencyOut { get; set; }
-        [JsonConverter(typeof(JsonStringEnumConverter))]
-        public TransactionEventType TransactionEvent { get; set; }
-        public decimal? Fee { get; set; }
-        public string? FeeCurrency { get; set; }
-        public decimal? ExchangeRate { get; set; }
-        public string? ExchangeCurrency { get; set; }
-        public string? Notes { get; set; }
+        public TransactionEventType TransactionType { get; set; }
+        public decimal? Amount { get; set; }
+        public string? AmountAssetType { get; set; }
+        public decimal? ExchangeRateValue { get; set; } = 0m;
+        public string? ExchangeRateCurrency { get; set; }
+        public decimal? Value { get; set; } = 0m;
+        public string? ValueAssetType { get; set; }
+        public bool IsNFT { get; set; } = false;
+        public bool UsesManualAssignedExchangeRate { get; set; } = false;
+        public bool Approved { get; set; } = false;
+        public DateTime UpdatedOn { get; set; } = DateTime.UtcNow;
+        public string? InternalNotes { get; set; }
 
     }
 }
+
+ 

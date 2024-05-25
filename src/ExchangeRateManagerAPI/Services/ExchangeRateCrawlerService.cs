@@ -313,6 +313,7 @@ namespace ExchangeRateManagerAPI.Services
             }
         }
 
+    
         public (bool IsCompleted, ExchangeRateSynchronisationResult Result) CheckTaskStatus(string taskId)
         {
             if (_tasks.TryGetValue(taskId, out var tcs))

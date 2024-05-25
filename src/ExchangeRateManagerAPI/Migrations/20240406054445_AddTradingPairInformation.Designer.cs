@@ -4,6 +4,7 @@ using ExchangeRateManagerAPI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExchangeRateManagerAPI.Migrations
 {
     [DbContext(typeof(CryptoTaxManDbContext))]
-    partial class CryptoTaxManDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240406054445_AddTradingPairInformation")]
+    partial class AddTradingPairInformation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,67 +33,55 @@ namespace ExchangeRateManagerAPI.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Sequence"));
 
-                    b.Property<int>("TransactionType")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("Amount")
+                    b.Property<decimal?>("AmountIn")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<string>("AmountAssetType")
+                    b.Property<decimal?>("AmountOut")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("CurrencyIn")
                         .HasColumnType("varchar(255)");
 
-                    b.Property<bool>("Approved")
-                        .HasColumnType("tinyint(1)");
+                    b.Property<string>("CurrencyOut")
+                        .HasColumnType("varchar(255)");
 
-                    b.Property<string>("ExchangeRateCurrency")
+                    b.Property<string>("ExchangeCurrency")
                         .HasColumnType("longtext");
 
-                    b.Property<decimal?>("ExchangeRateValue")
+                    b.Property<decimal?>("ExchangeRate")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<string>("InternalNotes")
+                    b.Property<decimal?>("Fee")
+                        .HasColumnType("decimal(65,30)");
+
+                    b.Property<string>("FeeCurrency")
                         .HasColumnType("longtext");
 
-                    b.Property<bool>("IsNFT")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("TaxableEvent")
-                        .HasColumnType("tinyint(1)");
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime?>("TransactionDate")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<DateTime>("UpdatedOn")
-                        .HasColumnType("datetime(6)");
+                    b.Property<int>("TransactionEvent")
+                        .HasColumnType("int");
 
-                    b.Property<bool>("UsesManualAssignedExchangeRate")
-                        .HasColumnType("tinyint(1)");
+                    b.Property<int>("TransactionType")
+                        .HasColumnType("int");
 
-                    b.Property<decimal?>("Value")
-                        .HasColumnType("decimal(65,30)");
+                    b.HasKey("Sequence");
 
-                    b.Property<string>("ValueAssetType")
-                        .HasColumnType("longtext");
+                    b.HasIndex("CurrencyIn")
+                        .HasDatabaseName("Idx_CurrencyIn");
 
-                    b.HasKey("Sequence", "TransactionType");
-
-                    b.HasIndex("Amount")
-                        .HasDatabaseName("Idx_Amount");
-
-                    b.HasIndex("AmountAssetType")
-                        .HasDatabaseName("Idx_AmountAssetType");
-
-                    b.HasIndex("Sequence")
-                        .HasDatabaseName("Idx_Sequence");
+                    b.HasIndex("CurrencyOut")
+                        .HasDatabaseName("Idx_CurrencyOut");
 
                     b.HasIndex("TransactionDate")
                         .HasDatabaseName("Idx_TransactionDate");
 
-                    b.HasIndex("TransactionType")
-                        .HasDatabaseName("Idx_TransactionType");
-
-                    b.HasIndex("TransactionDate", "AmountAssetType")
-                        .HasDatabaseName("Idx_TransactionDateAndAmountAssetType");
+                    b.HasIndex("TransactionDate", "CurrencyIn")
+                        .HasDatabaseName("Idx_TransactionDateAndCurrencyIn");
 
                     b.ToTable("CryptoUserTransactions", (string)null);
                 });

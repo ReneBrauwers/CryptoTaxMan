@@ -52,7 +52,7 @@ namespace ExchangeRateManagerAPI.Controllers
             }
 
             // Process your transactions here
-            var result = await _databaseService.InsertCryptoUserTransactions(transactions);
+            var result = await _databaseService.InsertCryptoUserTransactionsStaging(transactions);
             if(result.error)
             {
                 return BadRequest(new { Error = result.message});
@@ -61,37 +61,57 @@ namespace ExchangeRateManagerAPI.Controllers
             return Ok(new { Message = $"{result.records} {result.message}" });
         }
 
-        //[HttpGet]
-        //public async Task<IActionResult> Get([FromQuery] DateTime transactionDate, [FromQuery] string currencyIn, [FromQuery] string exchangeCurrency = "aud", [FromQuery] bool nearestMatch = true)
-        //{
-        //    ExchangeRate? result = null;
-        //    int maxTimeTravelAllowed = _config.GetValue<int>("maxNearestMatchRange", 1);
-        //    do
-        //    {
-        //        result = await _databaseService.FetchExchangeRateInformation(transactionDate, currencyIn.ToLower(), exchangeCurrency.ToLower());
-        //        if (result is not null && nearestMatch)
-        //        {
-        //            break;
-        //        }
+        [HttpPost("BulkImportTradingPairInformation")]
+        public async Task<IActionResult> BulkImportTradingPairInformation(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("Upload a valid file.");
+            }
 
-        //        if (result is null && nearestMatch)
-        //        {
-        //            if(maxTimeTravelAllowed == 0)
-        //            {
-        //                break;
-        //            }
-        //            transactionDate = transactionDate.AddDays(-1);
-        //            maxTimeTravelAllowed--;
-        //        }
-        //    } while (nearestMatch);
+            //store file json contents into a list of TradingPairInformation
+            var exchangeInfo = System.Text.Json.JsonSerializer.Deserialize<List<ExchangeInformation>>(file.OpenReadStream());
 
+            if (exchangeInfo is not null && exchangeInfo.Count() > 0)
+            {
 
-        //    if (result is null)
-        //    {
-        //        return NotFound();
-        //    }
+                // Process your transactions here
+                var result = await _databaseService.InsertTradingPairInformation(exchangeInfo);
+                if (result.error)
+                {
+                    return BadRequest(new { Error = result.message });
+                }
 
-        //    return Ok(result);
-        //}
+                return Ok(new { Message = $"{result.records} {result.message}" });
+            }
+
+            return BadRequest("No data found in the file.");
+             
+           
+        }
+
+        [HttpPost("ProcessCryptoUserTransactionsStaging")]
+        public async Task<IActionResult> ProcessCryptoUserTransactionsStaging()
+        {
+            var result = await _databaseService.ProcessCryptoUserTransactionsStaging();
+            if (result.error)
+            {
+               // if (result.details != null)
+               // {
+                    return BadRequest(new { Error = result.message, Details = result.details });
+               // }
+              //  else
+              //  {
+              //      return BadRequest(new { Error = result.message });
+              //  }
+ 
+            }
+            else
+            {
+                return Ok(new { Message = $"{result.records} {result.message}" });
+            }
+
+             
+        }
     }
 }
