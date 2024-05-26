@@ -7,7 +7,8 @@ namespace ExchangeRateManagerAPI.Services
 {
     public class ExchangeRateCrawlerService
     {
-        private readonly IDictionary<string, TaskCompletionSource<ExchangeRateSynchronisationResult>> _tasks = new Dictionary<string, TaskCompletionSource<ExchangeRateSynchronisationResult>>();
+        private readonly IDictionary<string, TaskCompletionSource<ExchangeRateSynchronisationResult>> _tasksExchangeRateSynchronisation = new Dictionary<string, TaskCompletionSource<ExchangeRateSynchronisationResult>>();
+        private readonly IDictionary<string, TaskCompletionSource<List<ExchangeRate>>> _tasksExchangeRateConversiom = new Dictionary<string, TaskCompletionSource<List<ExchangeRate>>>();
         private readonly IDictionary<string, Exception> _taskExceptions = new Dictionary<string, Exception>();
         private readonly ILogger<ExchangeRateCrawlerService> _logger;
         private readonly ISologenic _sologenicService;
@@ -25,11 +26,11 @@ namespace ExchangeRateManagerAPI.Services
             _dbContextFactory = dbContextFactory;
         }
 
-        public string StartNewTask(Func<Task<ExchangeRateSynchronisationResult>> taskFunc)
+        public string StartExchangeRateSynchronisationTask(Func<Task<ExchangeRateSynchronisationResult>> taskFunc)
         {
             var taskId = Guid.NewGuid().ToString();
             var tcs = new TaskCompletionSource<ExchangeRateSynchronisationResult>();
-            _tasks.Add(taskId, tcs);
+            _tasksExchangeRateSynchronisation.Add(taskId, tcs);
 
             Task.Run(async () =>
             {
@@ -49,6 +50,82 @@ namespace ExchangeRateManagerAPI.Services
             });
 
             return taskId;
+        }
+
+        public string StartCurrencyConversionTask(string targetCurrency = "aud")
+        {
+            var taskId = Guid.NewGuid().ToString();
+            var tcs = new TaskCompletionSource<List<ExchangeRate>>();
+            _tasksExchangeRateConversiom.Add(taskId, tcs);
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await Task.Run(() =>
+                    {
+                        var conversionResults = new List<ExchangeRate>();
+                        try
+                        {
+
+                            //Get conversion paths
+                            conversionResults.AddRange(ConvertCurrencies(targetCurrency));
+
+                            //GetCurrencyConversionPaths(targetCurrency);
+
+                            //var convertedRates = ConvertToTargetCurrency(targetCurrency);
+                            //if (convertedRates.Any())
+                            //{
+                            //    conversionResults = convertedRates.Select(rate => new ExchangeRate
+                            //    {
+                            //        Date = rate.Date,
+                            //        Symbol = rate.Symbol,
+                            //        ExchangeCurrency = rate.ExchangeCurrency,
+                            //        Close = rate.Close,
+                            //        High = rate.High,
+                            //        Low = rate.Low,
+                            //        Open = rate.Open,
+                            //        LowHighAverage = rate.LowHighAverage,
+                            //        OpenCloseAverage = rate.OpenCloseAverage,
+                            //        DataSource = rate.DataSource
+                            //    }).ToList();
+                            //}
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Error during currency conversion: {ex.Message}");
+                            throw;
+                        }
+                        return conversionResults;
+                    });
+
+                    tcs.SetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                    lock (_taskExceptions)
+                    {
+                        _taskExceptions[taskId] = ex;
+                    }
+                }
+            });
+
+            return taskId;
+        }
+
+        public (bool IsCompleted, List<ExchangeRate> Result, Exception Error) CheckCurrencyConversionTaskStatus(string taskId)
+        {
+            if (_tasksExchangeRateConversiom.TryGetValue(taskId, out var tcs))
+            {
+                if (tcs.Task.IsCompleted)
+                {
+                    _taskExceptions.TryGetValue(taskId, out var exception);
+                    return (true, tcs.Task.Result, exception);
+                }
+            }
+
+            return (false, null, null);
         }
 
         public async Task<ExchangeRateSynchronisationResult> ExecuteSequentialApiCalls(string datefromstring = "20200101", string format = "yyyyMMdd")
@@ -189,31 +266,7 @@ namespace ExchangeRateManagerAPI.Services
                         }
                     }
                 }
-
-                var additionalConversions = ConvertToTargetCurrency("aud");
-                if (additionalConversions is not null && additionalConversions.Any())
-                {
-                    StatusMessage = $"Performing {additionalConversions.Count} additional conversions to AUD";
-                    await AddExchangeRates(additionalConversions);
-
-                    if (results.Added == null)
-                    {
-                        results.Added = new Dictionary<string, (DateTime from, DateTime to, int records)>();
-                    }
-
-                    var responseFromDate = additionalConversions.Min(x => x.Date);
-                    var responseToDate = additionalConversions.Max(x => x.Date);
-
-                    if (results.Added.ContainsKey("manual"))
-                    {
-                        var existingValue = results.Added["manual"];
-                        results.Added["manual"] = (existingValue.from, responseToDate, existingValue.records + additionalConversions.Count);
-                    }
-                    else
-                    {
-                        results.Added.Add("manual", (responseFromDate, responseToDate, additionalConversions.Count));
-                    }
-                }
+               
 
                 return results;
             }
@@ -247,9 +300,9 @@ namespace ExchangeRateManagerAPI.Services
             });
         }
 
-        public (bool IsCompleted, ExchangeRateSynchronisationResult Result, Exception Error) CheckTaskStatus(string taskId)
+        public (bool IsCompleted, ExchangeRateSynchronisationResult Result, Exception Error) CheckExchangeRateSynchronisationTaskStatus(string taskId)
         {
-            if (_tasks.TryGetValue(taskId, out var tcs))
+            if (_tasksExchangeRateSynchronisation.TryGetValue(taskId, out var tcs))
             {
                 if (tcs.Task.IsCompleted)
                 {
@@ -289,7 +342,182 @@ namespace ExchangeRateManagerAPI.Services
             }
         }
 
-        private List<ExchangeRate> ConvertToTargetCurrency(string targetCurrency = "aud")
+
+
+        public List<ExchangeRate> ConvertCurrencies(string targetCurrency = "aud")
+        {
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var conversionPaths = GetCurrencyConversionPaths(targetCurrency,dbContext);
+            
+
+            //using var dbContext = _exchangeRateService.GetDbContext();
+
+            foreach (var path in conversionPaths)
+            {
+                var sourceCurrency = path.First();
+                targetCurrency = path.Last();
+
+                var recordsToConvert = dbContext.ExchangeRates
+                    .Where(x => x.Symbol.ToLower() == sourceCurrency && x.ExchangeCurrency.ToLower() != targetCurrency)
+                    .ToList();
+
+                foreach (var record in recordsToConvert)
+                {
+                    var conversionRate = GetConversionRateForPath(path, record.Date,1, dbContext);
+
+                    if (conversionRate is not null && targetCurrency == conversionRate.ExchangeCurrency)
+                    {
+
+                        //create new record with converted values
+                        ExchangeRate ConvertedRecord = new ExchangeRate();
+                        ConvertedRecord.Date = record.Date;
+                        ConvertedRecord.Symbol = record.Symbol;
+                        ConvertedRecord.ExchangeCurrency = conversionRate.ExchangeCurrency;
+                        ConvertedRecord.Close = record.Close * conversionRate.Close;
+                        ConvertedRecord.High = record.High * conversionRate.High;
+                        ConvertedRecord.Low = record.Low * conversionRate.Low;
+                        ConvertedRecord.Open = record.Open * conversionRate.Open;
+                        ConvertedRecord.LowHighAverage = record.LowHighAverage * conversionRate.LowHighAverage;
+                        ConvertedRecord.OpenCloseAverage = record.OpenCloseAverage * conversionRate.OpenCloseAverage;
+                        ConvertedRecord.DataSource = $"Auto conversion to {targetCurrency}";
+                        
+                        dbContext.ExchangeRates.Add(ConvertedRecord);
+                    }
+                }
+            }
+
+            //now get all modified records and project them in a new ExchangeRate List which we return
+            var modifiedRecords = dbContext.ChangeTracker.Entries<ExchangeRate>().Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToList();
+
+            dbContext.SaveChanges();
+
+            return modifiedRecords;
+        }
+
+
+
+        public List<List<string>> GetCurrencyConversionPaths(string targetCurrency, CryptoTaxManDbContext dbContext)
+        {
+            List<string> pairs = new List<string>();
+
+            // Fetch exchange rates from database
+            //using var dbContext = _dbContextFactory.CreateDbContext();
+
+            dbContext.ExchangeRates
+                .Select(x => new { x.Symbol, x.ExchangeCurrency })
+                .Distinct()
+                .ToList()
+                .ForEach(x => pairs.Add($"{x.Symbol.ToLower()}/{x.ExchangeCurrency.ToLower()}"));
+
+            var symbolsAlreadyMatchingTargetCurrency = dbContext.ExchangeRates
+                .Where(x => x.ExchangeCurrency.ToLower() == targetCurrency)
+                .Select(x => x.Symbol.ToLower())
+                .Distinct()
+                .ToList();
+
+            if (symbolsAlreadyMatchingTargetCurrency is not null && symbolsAlreadyMatchingTargetCurrency.Count > 0)
+            {
+                pairs = pairs.Where(x => !symbolsAlreadyMatchingTargetCurrency.Contains(x.Split('/')[0])).ToList();
+            }
+
+            pairs = pairs.Distinct().ToList();
+
+            var conversionPaths = new List<List<string>>();
+
+            foreach (var pair in pairs)
+            {
+                var sourceCurrency = pair.Split('/')[0];
+                var path = FindConversionPath(sourceCurrency, targetCurrency, dbContext);
+                if (path != null)
+                {
+                    conversionPaths.Add(path);
+                }
+            }
+
+            return conversionPaths;
+        }
+
+        private List<string> FindConversionPath(string fromCurrency, string toCurrency, CryptoTaxManDbContext dbContext)
+        {
+            var visited = new HashSet<string>();
+            var queue = new Queue<List<string>>();
+            queue.Enqueue(new List<string> { fromCurrency });
+
+
+            while (queue.Count > 0)
+            {
+                var path = queue.Dequeue();
+                var lastCurrency = path.Last();
+
+                if (lastCurrency == toCurrency)
+                {
+                    return path;
+                }
+
+                if (!visited.Contains(lastCurrency))
+                {
+                    visited.Add(lastCurrency);
+
+                    var nextSteps = dbContext.ExchangeRates
+                        .Where(rate => rate.Symbol.ToLower() == lastCurrency)
+                        .Select(rate => rate.ExchangeCurrency.ToLower())
+                        .Distinct()
+                        .ToList();
+
+                    foreach (var next in nextSteps)
+                    {
+                        var newPath = new List<string>(path) { next };
+                        queue.Enqueue(newPath);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private ExchangeRate? GetConversionRateForPath(List<string> path, DateTime date, int maxDaysDifference, CryptoTaxManDbContext dbContext)
+        {
+            ExchangeRate conversionRate = new ExchangeRate();
+
+
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                var fromCurrency = path[i];
+                var toCurrency = path[i + 1];
+
+                var rate = dbContext.ExchangeRates
+                    .Where(x => x.Symbol.ToLower() == fromCurrency && x.ExchangeCurrency.ToLower() == toCurrency && x.Date <= date)
+                    .OrderByDescending(x => x.Date)
+                    .FirstOrDefault();
+
+                if (rate == null || (date - rate.Date).TotalDays > maxDaysDifference)
+                {
+                    return null;
+                }
+
+
+                conversionRate.Date = rate.Date;
+                conversionRate.Symbol = rate.Symbol;
+                conversionRate.ExchangeCurrency = rate.ExchangeCurrency;
+                conversionRate.Close = rate.Close;
+                conversionRate.High = rate.High;
+                conversionRate.Low = rate.Low;
+                conversionRate.Open = rate.Open;
+                conversionRate.LowHighAverage = rate.LowHighAverage;
+                conversionRate.OpenCloseAverage = rate.OpenCloseAverage;
+                conversionRate.DataSource = rate.DataSource;             
+
+            }
+
+            return conversionRate;
+        }
+
+
+
+
+
+
+        private List<ExchangeRate> ConvertToTargetCurrencyOld(string targetCurrency = "aud")
         {
             List<string> pairs = new List<string>();
             Dictionary<string, List<string>> graph = new Dictionary<string, List<string>>();
@@ -381,6 +609,7 @@ namespace ExchangeRateManagerAPI.Services
             return newExchangeRates;
         }
 
+     
         public static List<List<string>> FindPaths(string start, string end, List<string> currentPath, Dictionary<string, List<string>> graph)
         {
             List<List<string>> paths = new List<List<string>>();
