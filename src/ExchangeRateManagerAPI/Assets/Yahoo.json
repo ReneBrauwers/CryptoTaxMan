@@ -259,6 +259,13 @@
     "ExchangeCurrency": "usd"
   },
   {
+    "Kind": "crypto",
+    "Symbol": "rain",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "rain",
+    "ExchangeCurrency": "usd"
+  },
+  {
     "Kind": "fiat",
     "Symbol": "aud",
     "ExchangeName": "YahooFinance",
