@@ -7,6 +7,8 @@ using Shared.Models;
 using System.Globalization;
 using System.Text;
 using ExchangeRateManagerAPI.Model;
+using FileHelpers;
+using Microsoft.JSInterop;
 
 namespace ExchangeRateManagerAPI.Controllers
 {
@@ -154,22 +156,19 @@ namespace ExchangeRateManagerAPI.Controllers
             try
             {
                 var result = await _databaseService.GetTaxReportDetails(req.taxYear, req.capitalGainTaxPercentage);
-               
+
+                //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
                 {
-                   
-                    var csv = new StringBuilder();
-                    csv.AppendLine("TaxYear,Asset,SellDate,QuantitySold,QuantityRemaining ,SellRecordSequenceNr,SellExchangeRate,SaleProceeds,BuyDate,BuyExchangeRate,BuyRecordSequenceNr,CapitalGains,IsDiscounted,TotalHoldingDays,CapitalGainTaxPercentage,TaxesDue,TaxCurrency");
-                    foreach (var item in result)
-                    {
-                        csv.AppendLine($"{item.TaxYear},{item.Asset},{item.SellDate},{item.QuantitySold},{item.QuantityRemaining},{item.SellRecordSequenceNr},{item.SellExchangeRate},{item.SaleProceeds},{item.BuyDate},{item.BuyExchangeRate},{item.BuyRecordSequenceNr},{item.CapitalGains},{item.IsDiscounted},{item.TotalHoldingDays},{item.CapitalGainTaxPercentage},{item.TaxesDue},{item.TaxCurrency}");
-                    }
+                    var engine = new FileHelperEngine<TaxReportDetail>();
+                    engine.HeaderText = engine.GetFileHeader();
+                    var outputString = engine.WriteString(result); // flattenedRecords);
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "TaxReportDetails.csv");
 
-                    return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "TaxReportDetails.csv");
                 }
 
-                
-                return Ok(result);
+
+                    return Ok(result);
             }
             catch (Exception ex)
             {
@@ -189,14 +188,11 @@ namespace ExchangeRateManagerAPI.Controllers
                 //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
                 {
-                    var csv = new StringBuilder();
-                    csv.AppendLine("TaxYear,TotalSaleProceeds,TotalCapitalGains,CapitalGainTaxPercentage,TaxesDue,TaxCurrency");
-                    foreach (var item in result)
-                    {
-                        csv.AppendLine($"{item.TaxYear},{item.TotalSaleProceeds},{item.TotalCapitalGains},{item.CapitalGainTaxPercentage},{item.TaxesDue},{item.TaxCurrency}");
-                    }
-
-                    return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "TaxReportSummary.csv");
+                    var engine = new FileHelperEngine<TaxReportSummary>();
+                    engine.HeaderText = engine.GetFileHeader();
+                    var outputString = engine.WriteString(result); // flattenedRecords);
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "TaxReportSummary.csv");
+                    
                 }
 
                 return Ok(result);

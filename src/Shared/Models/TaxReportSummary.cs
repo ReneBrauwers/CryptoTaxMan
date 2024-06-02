@@ -10,9 +10,7 @@ namespace Shared.Models
     {
         public int TaxYear { get; set; }   
         public decimal TotalSaleProceeds { get; set; }
-        public decimal TotalCapitalGains { get; set; }
-        public decimal CapitalGainTaxPercentage { get; set; }
-        public decimal TaxesDue { get; set; }
+        public decimal TotalCapitalGains { get; set; } 
         public string TaxCurrency { get; set; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FileHelpers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,24 +7,31 @@ using System.Threading.Tasks;
 
 namespace Shared.Models
 {
+    [IgnoreFirst(1)]
+    [DelimitedRecord(",")]
     public class TaxReportDetail
     {
+        [FieldOrder(1)]
         public int TaxYear { get; set; }
+        [FieldOrder(2)]
         public string Asset { get; set; }
-        public DateOnly SellDate { get; set; }
-        public decimal QuantitySold { get; set; }
-        public int SellRecordSequenceNr { get; set; }
-        public decimal SellExchangeRate { get; set; }
-        public decimal SaleProceeds { get; set; }
-        public DateOnly BuyDate { get; set; }
-        public decimal BuyExchangeRate { get; set; }
-        public int BuyRecordSequenceNr { get; set; }
-        public decimal CapitalGains { get; set; }
-        public decimal QuantityRemaining { get; set; }
-        public bool IsDiscounted { get; set; }
-        public int TotalHoldingDays { get; set; }
-        public decimal CapitalGainTaxPercentage { get; set; }
-        public decimal TaxesDue { get; set; }
-        public string TaxCurrency { get; set; }
+        [FieldOrder(3)]
+        public decimal SellAmount { get; set; }
+        [FieldOrder(4)]
+        [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")] //THH:mm:ss")]
+        public DateTime BoughtDate { get; set; }
+        [FieldOrder(5)]
+        public decimal BuyPrice { get; set; }
+        [FieldOrder(6)]
+        [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")] //THH:mm:ss")]
+        public DateTime SellDate { get; set; }
+        [FieldOrder(7)]
+        public decimal SellPrice { get; set; }
+        [FieldOrder(8)]
+        public string Currency { get; set; }
+        [FieldOrder(9)]
+        public decimal CapitalGainAmount { get; set; }
+        [FieldOrder(10)]
+        public string Calculation { get; set; }
     }
 }

@@ -8,21 +8,12 @@ namespace Shared.Models
 {
     public class Holding
     {
-        public decimal Amount { get; set; }
-        public decimal ExchangeRateValue { get; set; }
-        public string AmountAssetType { get; set; }
-        public string ExchangeRateCurrency { get; set; }
-        public DateTime BuyDate { get; set; }
-        public int Sequence { get; set; }
+        public DateOnly CreatedOn { get; set; }
+        public string Name { get; set; }
+        public decimal Available { get; set; }
+        public decimal BoughtAt { get; set; }
+        public string Currency { get; set; }
 
-        public Holding(decimal amount, decimal exchangeRateValue, string amountAssetType, string exchangeRateCurrency, DateTime buyDate, int sequence)
-        {
-            Amount = amount;
-            ExchangeRateValue = exchangeRateValue;
-            AmountAssetType = amountAssetType;
-            ExchangeRateCurrency = exchangeRateCurrency;
-            BuyDate = buyDate;
-            Sequence = sequence;
-        }
+        public List<TaxReportDetail> RecordedTransactions { get; set; }
     }
 }

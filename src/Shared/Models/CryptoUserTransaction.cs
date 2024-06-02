@@ -8,12 +8,12 @@ namespace Shared.Models
     {
         public int Sequence { get; set; }
         [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")]
-        public DateTime? TransactionDate { get; set; }
+        public DateTime TransactionDate { get; set; }
         public bool TaxableEvent { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]
         public TransactionEventType TransactionType { get; set; }
-        public decimal? Amount { get; set; }
-        public string? AmountAssetType { get; set; }
+        public decimal Amount { get; set; }
+        public string AmountAssetType { get; set; }
         public decimal? ExchangeRateValue { get; set; } = 0m;
         public string? ExchangeRateCurrency { get; set; }
         public decimal? Value { get; set; } = 0m;
