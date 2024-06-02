@@ -5,22 +5,29 @@ using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Polly;
 using Shared.Models;
+using System;
 using System.Text;
 
 namespace ExchangeRateManagerAPI.Services
 {
     public class DatabaseService
     {
-       
-        private readonly ILogger<DatabaseService> _logger; 
+
+        private readonly ILogger<DatabaseService> _logger;
+        private readonly IConfiguration _config;
         private readonly IDbContextFactory<CryptoTaxManDbContext> _dbContextFactory;
         private readonly IWebHostEnvironment _environment;
+        private readonly IDictionary<string, TaskCompletionSource<(int records, string? message, bool error, object?)>> _tasksProcessCryptoUserTransactionsStaging = new Dictionary<string, TaskCompletionSource<(int records, string? message, bool error, object?)>>();
+        private readonly IDictionary<string, Exception> _taskExceptions = new Dictionary<string, Exception>();
+        public string StatusMessage = string.Empty;
 
-        public DatabaseService(ILogger<DatabaseService> logger, IWebHostEnvironment environment, IDbContextFactory<CryptoTaxManDbContext> dbContextFactory) // CryptoTaxManDbContext dbContext)
+        public DatabaseService(ILogger<DatabaseService> logger, IConfiguration config, IWebHostEnvironment environment, IDbContextFactory<CryptoTaxManDbContext> dbContextFactory) // CryptoTaxManDbContext dbContext)
         {
             _logger = logger;
+            _config = config;
             _environment = environment;
             _dbContextFactory = dbContextFactory;
+
         }
 
 
@@ -37,7 +44,7 @@ namespace ExchangeRateManagerAPI.Services
                 {
                     return result;
                 }
-                
+
             }
             catch (Exception ex)
             {
@@ -45,8 +52,9 @@ namespace ExchangeRateManagerAPI.Services
             }
 
             return null;
- 
+
         }
+
 
         public async Task<(int records, string message, bool error)> InsertCryptoUserTransactionsStaging(List<CryptoUserTransactionStaging> transactions)
         {
@@ -59,13 +67,64 @@ namespace ExchangeRateManagerAPI.Services
             catch (Exception ex)
             {
                 _logger.LogError($"InsertCryptoUserTransactions caused error {ex.Message}");
-                return (0, $"InsertCryptoUserTransactions caused error {ex.Message}",true);
+                return (0, $"InsertCryptoUserTransactions caused error {ex.Message}", true);
             }
 
-            
+
         }
 
-        public async Task<(int records, string? message, bool error, object? details)> ProcessCryptoUserTransactionsStaging()
+        public async Task<(int records, string message, bool error)> UpsertCryptoUserTranssactionsStaging(List<CryptoUserTransactionStaging> transactions)
+        {
+            try
+            {
+                using var dbContext = _dbContextFactory.CreateDbContext();
+                var existingRecords = await dbContext.CryptoUserTransactionsStaging.ToListAsync();
+                var newRecords = transactions.Where(x => !existingRecords.Select(y => y.Sequence).Contains(x.Sequence)).ToList();
+                var updatedRecords = transactions.Where(x => existingRecords.Select(y => y.Sequence).Contains(x.Sequence)).ToList();
+
+                dbContext.CryptoUserTransactionsStaging.UpdateRange(updatedRecords);
+                await dbContext.CryptoUserTransactionsStaging.AddRangeAsync(newRecords);
+                return (await dbContext.SaveChangesAsync(), "Upserted", false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"UpsertCryptoUserTranssactionsStaging caused error {ex.Message}");
+                return (0, $"UpsertCryptoUserTranssactionsStaging caused error {ex.Message}", true);
+            }
+        }
+
+
+
+        public string StartProcessCryptoUserTransactionsStagingTask(Func<Task<(int records, string? message, bool error, object? details)>> taskFunc)
+        {
+            var taskId = Guid.NewGuid().ToString();
+            var tcs = new TaskCompletionSource<(int records, string? message, bool error, object? details)>();
+            _tasksProcessCryptoUserTransactionsStaging.Add(taskId, tcs);
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await taskFunc();
+                    tcs.SetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                    lock (_taskExceptions)
+                    {
+                        _taskExceptions[taskId] = ex;
+                    }
+                }
+            });
+
+            return taskId;
+        }
+
+
+
+
+        public async Task<(int records, string? message, bool error, object? details)> ProcessCryptoUserTransactionsStaging(string baseExchangeCurrency = "aud")
         {
             int recordsAffected = 0;
             InvalidCryptoUserTransaction? invalidTransactions = null;
@@ -73,78 +132,141 @@ namespace ExchangeRateManagerAPI.Services
             bool errorOccured = false;
             try
             {
-                using var dbContext = _dbContextFactory.CreateDbContext();
-
-                var stagingRecords = await dbContext.CryptoUserTransactionsStaging.Where(x => x.IsProcessed == false).OrderBy(o => o.TransactionDate).ToListAsync();
-
-                //flatten the records
                 List<CryptoUserTransaction> transactions = new List<CryptoUserTransaction>();
-                foreach (var record in stagingRecords)
+                using (var dbContext = _dbContextFactory.CreateDbContext())
                 {
-                    var result = PrepareCryptoUserTransactions(record);
-                    if (result is not null && result.Count > 0)
+
+                    var stagingRecords = await dbContext.CryptoUserTransactionsStaging.Where(x => x.IsProcessed == false).OrderBy(o => o.TransactionDate).ToListAsync();
+
+                    //return if stagingRecords is null or empty
+                    if (stagingRecords is null || stagingRecords.Count == 0)
                     {
-                        transactions.AddRange(result);
+                        responseMessage = "No transactions to process";
+                        return (recordsAffected, responseMessage, errorOccured, invalidTransactions);
                     }
-                    //await dbContext.CryptoUserTransactions.AddRangeAsync(transactions);
-                    record.IsProcessed = true;
+
+                    //flatten the records
+
+                    foreach (var record in stagingRecords)
+                    {
+                        var result = PrepareCryptoUserTransactions(record);
+                        if (result is not null && result.Count > 0)
+                        {
+                            transactions.AddRange(result);
+                        }
+                        //await dbContext.CryptoUserTransactions.AddRangeAsync(transactions);
+                        record.IsProcessed = true;
+                    }
+
+                    if (transactions is null || transactions.Count == 0)
+                    {
+                        responseMessage = "No transactions to process";
+                        return (recordsAffected, responseMessage, errorOccured, invalidTransactions);
+                    }
+
+                    //check for invald transactions                
+                    invalidTransactions = ValidateCryptoTransactionRecords(transactions);
+
+                    if (invalidTransactions is not null)
+                    {
+                        //dispose our context
+                        await dbContext.DisposeAsync();
+                        errorOccured = true;
+                        responseMessage = "Invalid transactions found";
+                        return (recordsAffected, responseMessage, errorOccured, invalidTransactions);
+                    }
+                    else
+                    {
+                        //dispose our context
+                        dbContext.SaveChanges();
+                        await dbContext.DisposeAsync();
+                    }
                 }
 
-                if (transactions is null || transactions.Count == 0)
+
+                //now lookup exchange rates from the exchange rate table for each transaction
+                int counter = 0;
+                foreach (var transaction in transactions)
                 {
-                    responseMessage = "No transactions to process";
-                    return (recordsAffected, responseMessage, errorOccured, invalidTransactions);
+                    StatusMessage = $"Processing transaction {counter++} of {transactions.Count}";
+                    if (transaction.TransactionDate is null)
+                    {
+                        continue;
+                    }
+
+
+                    ExchangeRate? exchangeRate = null;
+                    //check if we have an exchange rate for the transaction date, if not then we need to look up the previous day and go back up to 7 days
+                    //while(true)
+                    //{
+                    DateTime transactionDate = transaction.TransactionDate ?? DateTime.MaxValue;
+
+                    //format the transactionDate to exclude the time
+                    transactionDate = new DateTime(transactionDate.Year, transactionDate.Month, transactionDate.Day, 0, 0, 0, DateTimeKind.Utc);
+                    //exchangeRate = await FetchExchangeRateInformation(transactionDate, transaction.AmountAssetType, baseExchangeCurrency);
+
+
+                    int maxTimeTravelAllowed = _config.GetValue<int>("maxNearestMatchRange", 1);
+                    do
+                    {
+                        exchangeRate = await FetchExchangeRateInformation(transactionDate, transaction.AmountAssetType.ToLower(), baseExchangeCurrency.ToLower());// await _databaseService.FetchExchangeRateInformation(transactionDate, currencyIn.ToLower(), exchangeCurrency.ToLower());
+                        if (exchangeRate is not null)
+                        {
+                            break;
+                        }
+
+                        if (exchangeRate is null)
+                        {
+                            if (maxTimeTravelAllowed == 0)
+                            {
+                                break;
+                            }
+                            transactionDate = transactionDate.AddDays(-1);
+                            maxTimeTravelAllowed--;
+                        }
+                    } while (true);
+
+
+
+                    //var foundExchangeRate =  dbContext.ExchangeRates.Find(transaction.TransactionDate, transaction.AmountAssetType, baseExchangeCurrency);
+
+                    // var exchangeRate = await FetchExchangeRateInformation(transaction.TransactionDate ?? DateTime.Now, transaction.AmountAssetType, baseExchangeCurrency);
+                    if (exchangeRate is not null)
+                    {
+                        //if transaction type is a buy then use the high rate, else use the low rate
+                        if (transaction.TransactionType == Shared.Enums.TransactionEventType.buy)
+                        {
+                            transaction.ExchangeRateValue = exchangeRate.High;
+                            transaction.ExchangeRateCurrency = exchangeRate.ExchangeCurrency;
+                            transaction.Value = transaction.Amount * exchangeRate.High;
+                        }
+                        else
+                        {
+                            transaction.ExchangeRateValue = exchangeRate.Low;
+                            transaction.ExchangeRateCurrency = exchangeRate.ExchangeCurrency;
+                            transaction.Value = transaction.Amount * exchangeRate.Low;
+                        }
+
+
+
+                    }
                 }
 
-                //check for invald transactions                
-                invalidTransactions = ValidateCryptoTransactionRecords(transactions);
-
-                if (invalidTransactions is not null)
-                {
-                    //dispose our context
-                    await dbContext.DisposeAsync();
-                    errorOccured = true;
-                    responseMessage = "Invalid transactions found";
-                    return (recordsAffected, responseMessage, errorOccured, invalidTransactions);
-                }
 
                 //now group CryptoUserTransactions by sequence where the group count is exactly 2 (sell.buy or buy.sell)
-                var groupedTx = transactions.GroupBy(x => x.Sequence).Where(x => x.Count() == 2).ToList();
+                // var groupedTx = transactions.GroupBy(x => x.Sequence).Where(x => x.Count() == 2).ToList();
+
+                //now sort the transactions by sequence and call UpsertCryptoUserTranssactions
+                var sortedTransactions = transactions.OrderBy(x => x.Sequence).ToList();
+                var upsertResult = await UpsertCryptoUserTransactions(sortedTransactions);
+
+                return (upsertResult.records, upsertResult.message, upsertResult.error, invalidTransactions);
+
+
+
 
             }
 
-            //now validate before we actuall save
-            //    var notApprovedTx = await dbContext.CryptoUserTransactions.Where(x => x.Approved == false).ToListAsync();
-            //    if (notApprovedTx is not null && notApprovedTx.Count > 0)
-            //    {
-            //        //validate
-            //        invalidTransactions = ValidateCryptoTransactionRecords(notApprovedTx);
-            //        if (invalidTransactions is not null)
-            //        {
-            //            //dispose our context
-            //            await dbContext.DisposeAsync();
-            //            errorOccured = true;
-            //            responseMessage = "Invalid transactions found";
-            //            return (recordsAffected, responseMessage, errorOccured, invalidTransactions);
-            //        }
-
-            //        //now group CryptoUserTransactions by sequence where the group count is exactly 2 (sell.buy or buy.sell)
-            //        var groupedTx = notApprovedTx.GroupBy(x => x.Sequence).Where(x => x.Count() == 2).ToList();
-
-
-            //        else
-            //        {
-            //        //save changes
-            //       recordsAffected =  await dbContext.SaveChangesAsync();
-            //        errorOccured = false;
-            //        responseMessage = "Inserted";
-
-            //    }
-
-
-
-
-            //}
             catch (Exception ex)
             {
                 _logger.LogError($"ProcessCryptoUserTransactionsStaging caused error {ex.Message}");
@@ -156,6 +278,87 @@ namespace ExchangeRateManagerAPI.Services
             return (recordsAffected, responseMessage, errorOccured, invalidTransactions);
         }
 
+
+        public (bool IsCompleted, (int records, string? message, bool error, object? details) Result, Exception Error) CheckProcessCryptoUserTransactionsStagingTaskStatus(string taskId)
+        {
+            if (_tasksProcessCryptoUserTransactionsStaging.TryGetValue(taskId, out var tcs))
+            {
+                if (tcs.Task.IsCompleted)
+                {
+                    _taskExceptions.TryGetValue(taskId, out var exception);
+                    return (true, tcs.Task.Result, exception);
+                }
+            }
+
+            return (false, (0, string.Empty, false, null), null);
+        }
+        public async Task<(int records, string message, bool error)> UpsertCryptoUserTransactions(List<CryptoUserTransaction> transactions)
+        {
+            try
+            {
+
+                using var dbContext = _dbContextFactory.CreateDbContext();
+                var existingRecords = await dbContext.CryptoUserTransactions.ToListAsync();
+
+
+                //now update the existing records with the new values
+                foreach (var record in transactions)
+                {
+                    var existingRecord = existingRecords.FirstOrDefault(x => x.Sequence == record.Sequence && x.TransactionDate == record.TransactionDate && x.TransactionType == record.TransactionType);
+                    if (existingRecord is not null)
+                    {
+                        existingRecord.Amount = record.Amount;
+                        existingRecord.AmountAssetType = record.AmountAssetType;
+                        existingRecord.ExchangeRateCurrency = record.ExchangeRateCurrency;
+                        existingRecord.ExchangeRateValue = record.ExchangeRateValue;
+                        existingRecord.IsNFT = record.IsNFT;
+                        existingRecord.TaxableEvent = record.TaxableEvent;
+                        existingRecord.Value = record.Value;
+                        existingRecord.ValueAssetType = record.ValueAssetType;
+                        existingRecord.UsesManualAssignedExchangeRate = record.UsesManualAssignedExchangeRate;
+                        existingRecord.InternalNotes = record.InternalNotes;
+                    }
+                    else
+                    {
+                        await dbContext.CryptoUserTransactions.AddAsync(record);
+                    }
+                }
+
+
+                //var newRecords = transactions
+                //    .Where(x => !existingRecords
+                //    .Select(y => new { y.Sequence, y.TransactionDate, y.TransactionType })
+                //    .Contains(new { x.Sequence, x.TransactionDate, x.TransactionType }))
+                //    .ToList();
+
+
+                //var updatedRecords = transactions
+                //    .Where(x => existingRecords
+                //    .Select(y => new { y.Sequence, y.TransactionDate, y.TransactionType })
+                //    .Contains(new { x.Sequence, x.TransactionDate, x.TransactionType }))
+                //    .ToList();
+
+                //var comparer = EqualityComparer<CryptoUserTransaction>.Default;
+
+                //updatedRecords = updatedRecords.Except(newRecords, comparer).ToList();
+                //newRecords = newRecords.Except(updatedRecords, comparer).ToList();
+
+
+                //dbContext.CryptoUserTransactions.UpdateRange(updatedRecords);
+                //await dbContext.CryptoUserTransactions.AddRangeAsync(newRecords);
+                return (await dbContext.SaveChangesAsync(), "Upserted", false);
+
+                //dbContext.CryptoUserTransactionsStaging.UpdateRange(updatedRecords);
+                //await dbContext.CryptoUserTransactionsStaging.AddRangeAsync(newRecords);
+                //return (await dbContext.SaveChangesAsync(), "Upserted", false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"UpsertCryptoUserTransactions caused error {ex.Message}");
+                return (0, $"UpsertCryptoUserTransactions caused error {ex.Message}", true);
+            }
+        }
+
         public async Task<(int records, string message, bool error)> InsertTradingPairInformation(List<ExchangeInformation> exchangeInformation)
         {
             try
@@ -163,7 +366,7 @@ namespace ExchangeRateManagerAPI.Services
                 //project exchangeInformation into TradingPairInformation
                 var transactions = exchangeInformation.Select(x => new TradingPairInformation()
                 {
-                    IsActive =true,
+                    IsActive = true,
                     ExchangeCurrency = x.ExchangeCurrency,
                     ExchangeName = x.ExchangeName,
                     ExchangeSymbol = x.ExchangeSymbol,
@@ -186,235 +389,235 @@ namespace ExchangeRateManagerAPI.Services
                 _logger.LogError($"InsertTradingPairInformation caused error {ex.Message}");
                 return (0, $"InsertTradingPairInformation caused error {ex.Message}", true);
             }
-            
+
         }
 
-    
+
         private static List<CryptoUserTransaction> PrepareCryptoUserTransactions(CryptoUserTransactionStaging record)
         {
             List<CryptoUserTransaction> flattenRecords = new List<CryptoUserTransaction>();
-          
-                switch (record.TransactionEvent)
-                {
 
-                    case Shared.Enums.TransactionEventType.buy:
+            switch (record.TransactionEvent)
+            {
+
+                case Shared.Enums.TransactionEventType.buy:
+                    {
+                        flattenRecords.Add(new CryptoUserTransaction
                         {
-                            flattenRecords.Add(new CryptoUserTransaction
-                            {
-                                TaxableEvent = false,
-                                Amount = record.AmountIn,
-                                AmountAssetType = record.CurrencyIn?.ToLower(),
-                                Sequence = record.Sequence,
-                                TransactionDate = record.TransactionDate,
-                                TransactionType = Shared.Enums.TransactionEventType.buy,
-                                //ExchangeRateCurrency = record.ExchangeCurrency,
-                                //ExchangeRateValue = record.ExchangeRate,
-                                IsNFT = false
-                            });
-                            break;
-                        }
-                    case Shared.Enums.TransactionEventType.nftbuy:
+                            TaxableEvent = false,
+                            Amount = record.AmountIn,
+                            AmountAssetType = record.CurrencyIn?.ToLower(),
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate,
+                            TransactionType = Shared.Enums.TransactionEventType.buy,
+                            //ExchangeRateCurrency = record.ExchangeCurrency,
+                            //ExchangeRateValue = record.ExchangeRate,
+                            IsNFT = false
+                        });
+                        break;
+                    }
+                case Shared.Enums.TransactionEventType.nftbuy:
+                    {
+                        //sell and a buy
+
+                        flattenRecords.Add(new CryptoUserTransaction
                         {
-                            //sell and a buy
-
-                            flattenRecords.Add(new CryptoUserTransaction
-                            {
-                                TaxableEvent = true,
-                                Amount = record.AmountIn,
-                                AmountAssetType = record.CurrencyIn?.ToLower(),
-                                Sequence = record.Sequence,
-                                TransactionDate = record.TransactionDate,
-                                TransactionType = Shared.Enums.TransactionEventType.sell,
-                                //ExchangeRateCurrency = record.ExchangeCurrency,
-                                //ExchangeRateValue = record.ExchangeRate,
-                                IsNFT = true
-                            });
+                            TaxableEvent = true,
+                            Amount = record.AmountIn,
+                            AmountAssetType = record.CurrencyIn?.ToLower(),
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate,
+                            TransactionType = Shared.Enums.TransactionEventType.sell,
+                            //ExchangeRateCurrency = record.ExchangeCurrency,
+                            //ExchangeRateValue = record.ExchangeRate,
+                            IsNFT = true
+                        });
 
 
-                            flattenRecords.Add(new CryptoUserTransaction
-                            {
-                                TaxableEvent = false,
-                                Amount = record.AmountOut,
-                                AmountAssetType = record.CurrencyOut?.ToLower(),
-                                Sequence = record.Sequence,
-                                Value = record.AmountIn,
-                                ValueAssetType = record.CurrencyIn?.ToLower(),
-                                TransactionDate = record.TransactionDate,
-                                TransactionType = Shared.Enums.TransactionEventType.nftbuy,
-                                IsNFT = true
-
-                            });
-                            break;
-                        }
-                    case Shared.Enums.TransactionEventType.stake:
+                        flattenRecords.Add(new CryptoUserTransaction
                         {
-                            //sell
-                            //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
-                            //bool useProvidedExchangeRate = false;
-                            //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
-                            //{
-                            //    useProvidedExchangeRate = true;
-                            //}
+                            TaxableEvent = false,
+                            Amount = record.AmountOut,
+                            AmountAssetType = record.CurrencyOut?.ToLower(),
+                            Sequence = record.Sequence,
+                            Value = record.AmountIn,
+                            ValueAssetType = record.CurrencyIn?.ToLower(),
+                            TransactionDate = record.TransactionDate,
+                            TransactionType = Shared.Enums.TransactionEventType.nftbuy,
+                            IsNFT = true
 
-                            //exchange rate and exchange currency in a STAKE SELL reflects the exchange rate staked against 
+                        });
+                        break;
+                    }
+                case Shared.Enums.TransactionEventType.stake:
+                    {
+                        //sell
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        //bool useProvidedExchangeRate = false;
+                        //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
+                        //{
+                        //    useProvidedExchangeRate = true;
+                        //}
+
+                        //exchange rate and exchange currency in a STAKE SELL reflects the exchange rate staked against 
+                        var sellRecord = new CryptoUserTransaction();
+
+
+                        sellRecord.TaxableEvent = true;
+                        sellRecord.Amount = record.AmountIn;
+                        sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
+                        sellRecord.Sequence = record.Sequence;
+                        sellRecord.TransactionDate = record.TransactionDate;
+                        sellRecord.TransactionType = Shared.Enums.TransactionEventType.sell;
+                        sellRecord.IsNFT = false;
+                        //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+                        flattenRecords.Add(sellRecord);
+
+                        break;
+                    }
+                case Shared.Enums.TransactionEventType.transfer:
+                    {
+                        //sell
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        //bool useProvidedExchangeRate = false;
+                        //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
+                        //{
+                        //    useProvidedExchangeRate = true;
+                        //}
+                        if (record.AmountIn - record.AmountOut > 0)
+                        {
                             var sellRecord = new CryptoUserTransaction();
 
 
                             sellRecord.TaxableEvent = true;
-                            sellRecord.Amount = record.AmountIn;
+                            sellRecord.Amount = record.AmountIn - record.AmountOut;
                             sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
                             sellRecord.Sequence = record.Sequence;
                             sellRecord.TransactionDate = record.TransactionDate;
                             sellRecord.TransactionType = Shared.Enums.TransactionEventType.sell;
                             sellRecord.IsNFT = false;
-                            //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
-                            //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
-                            flattenRecords.Add(sellRecord);
-
-                            break;
-                        }
-                    case Shared.Enums.TransactionEventType.transfer:
-                        {
-                            //sell
-                            //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
-                            //bool useProvidedExchangeRate = false;
-                            //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
-                            //{
-                            //    useProvidedExchangeRate = true;
-                            //}
-                            if (record.AmountIn - record.AmountOut > 0)
-                            {
-                                var sellRecord = new CryptoUserTransaction();
-
-
-                                sellRecord.TaxableEvent = true;
-                                sellRecord.Amount = record.AmountIn - record.AmountOut;
-                                sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
-                                sellRecord.Sequence = record.Sequence;
-                                sellRecord.TransactionDate = record.TransactionDate;
-                                sellRecord.TransactionType = Shared.Enums.TransactionEventType.sell;
-                                sellRecord.IsNFT = false;
-                                sellRecord.InternalNotes = "Transfer fees";
-                                //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
-                                //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
-
-                                flattenRecords.Add(sellRecord);
-                            }
-
-                            break;
-                        }
-                    case Shared.Enums.TransactionEventType.sell:
-                        {
-
-
-                            //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
-                            //bool useProvidedExchangeRate = false;
-                            //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
-                            //{
-                            //    useProvidedExchangeRate = true;
-                            //}
-
-                            //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
-                            var sellRecord = new CryptoUserTransaction();
-
-
-                            sellRecord.TaxableEvent = true;
-                            sellRecord.Amount = record.AmountIn;
-                            sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
-                            sellRecord.Sequence = record.Sequence;
-                            sellRecord.TransactionDate = record.TransactionDate;
-                            sellRecord.TransactionType = Shared.Enums.TransactionEventType.sell;
-                            sellRecord.IsNFT = false;
-                            //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
-                            //sellRecord.ExchangeRateValue =  (useProvidedExchangeRate? record.ExchangeRate:0d);
-
-                            flattenRecords.Add(sellRecord);
-
-                            var buyRecord = new CryptoUserTransaction();
-                            buyRecord.TaxableEvent = false;
-                            buyRecord.Amount = record.AmountOut;
-                            buyRecord.AmountAssetType = record.CurrencyOut?.ToLower();
-                            buyRecord.Sequence = record.Sequence;
-                            buyRecord.TransactionDate = record.TransactionDate;
-                            buyRecord.TransactionType = Shared.Enums.TransactionEventType.buy;
-                            buyRecord.IsNFT = false;
-                            //buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
-                            //buyRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
-
-                            flattenRecords.Add(buyRecord);
-                            break;
-                        }
-                    case Shared.Enums.TransactionEventType.nftsell:
-                        {
-                            //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
-                            //bool useProvidedExchangeRate = false;
-                            //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
-                            //{
-                            //    useProvidedExchangeRate = true;
-                            //}
-
-                            //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
-                            var sellRecord = new CryptoUserTransaction();
-
-
-                            sellRecord.TaxableEvent = true;
-                            sellRecord.Amount = record.AmountIn;
-                            sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
-                            sellRecord.Sequence = record.Sequence;
-                            sellRecord.Value = record.AmountOut;
-                            sellRecord.ValueAssetType = record.CurrencyOut?.ToLower();
-                            sellRecord.TransactionDate = record.TransactionDate;
-                            sellRecord.TransactionType = Shared.Enums.TransactionEventType.nftsell;
-                            sellRecord.IsNFT = true;
+                            sellRecord.InternalNotes = "Transfer fees";
                             //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
                             //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
 
                             flattenRecords.Add(sellRecord);
-
-                            var buyRecord = new CryptoUserTransaction();
-                            buyRecord.TaxableEvent = false;
-                            buyRecord.Amount = record.AmountOut;
-                            buyRecord.AmountAssetType = record.CurrencyOut?.ToLower();
-                            buyRecord.Sequence = record.Sequence;
-                            buyRecord.TransactionDate = record.TransactionDate;
-                            buyRecord.TransactionType = Shared.Enums.TransactionEventType.buy;
-                            buyRecord.IsNFT = true;
-                            //buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
-                            //buyRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
-
-                            flattenRecords.Add(buyRecord);
-
-                            break;
                         }
-                    case Shared.Enums.TransactionEventType.unstake:
+
+                        break;
+                    }
+                case Shared.Enums.TransactionEventType.sell:
+                    {
+
+
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        //bool useProvidedExchangeRate = false;
+                        //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
+                        //{
+                        //    useProvidedExchangeRate = true;
+                        //}
+
+                        //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
+                        var sellRecord = new CryptoUserTransaction();
+
+
+                        sellRecord.TaxableEvent = true;
+                        sellRecord.Amount = record.AmountIn;
+                        sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
+                        sellRecord.Sequence = record.Sequence;
+                        sellRecord.TransactionDate = record.TransactionDate;
+                        sellRecord.TransactionType = Shared.Enums.TransactionEventType.sell;
+                        sellRecord.IsNFT = false;
+                        //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        //sellRecord.ExchangeRateValue =  (useProvidedExchangeRate? record.ExchangeRate:0d);
+
+                        flattenRecords.Add(sellRecord);
+
+                        var buyRecord = new CryptoUserTransaction();
+                        buyRecord.TaxableEvent = false;
+                        buyRecord.Amount = record.AmountOut;
+                        buyRecord.AmountAssetType = record.CurrencyOut?.ToLower();
+                        buyRecord.Sequence = record.Sequence;
+                        buyRecord.TransactionDate = record.TransactionDate;
+                        buyRecord.TransactionType = Shared.Enums.TransactionEventType.buy;
+                        buyRecord.IsNFT = false;
+                        //buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        //buyRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+
+                        flattenRecords.Add(buyRecord);
+                        break;
+                    }
+                case Shared.Enums.TransactionEventType.nftsell:
+                    {
+                        //we need to apply some logic in case an exchange rate has been provided, in order to determine the sell value / conversion rate.
+                        //bool useProvidedExchangeRate = false;
+                        //if (record.ExchangeRate is not null && record.ExchangeRate > 0)
+                        //{
+                        //    useProvidedExchangeRate = true;
+                        //}
+
+                        //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
+                        var sellRecord = new CryptoUserTransaction();
+
+
+                        sellRecord.TaxableEvent = true;
+                        sellRecord.Amount = record.AmountIn;
+                        sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
+                        sellRecord.Sequence = record.Sequence;
+                        sellRecord.Value = record.AmountOut;
+                        sellRecord.ValueAssetType = record.CurrencyOut?.ToLower();
+                        sellRecord.TransactionDate = record.TransactionDate;
+                        sellRecord.TransactionType = Shared.Enums.TransactionEventType.nftsell;
+                        sellRecord.IsNFT = true;
+                        //sellRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        //sellRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+
+                        flattenRecords.Add(sellRecord);
+
+                        var buyRecord = new CryptoUserTransaction();
+                        buyRecord.TaxableEvent = false;
+                        buyRecord.Amount = record.AmountOut;
+                        buyRecord.AmountAssetType = record.CurrencyOut?.ToLower();
+                        buyRecord.Sequence = record.Sequence;
+                        buyRecord.TransactionDate = record.TransactionDate;
+                        buyRecord.TransactionType = Shared.Enums.TransactionEventType.buy;
+                        buyRecord.IsNFT = true;
+                        //buyRecord.ExchangeRateCurrency = record.ExchangeCurrency;
+                        //buyRecord.ExchangeRateValue = (useProvidedExchangeRate ? record.ExchangeRate : 0d);
+
+                        flattenRecords.Add(buyRecord);
+
+                        break;
+                    }
+                case Shared.Enums.TransactionEventType.unstake:
+                    {
+                        //buy
+
+                        flattenRecords.Add(new CryptoUserTransaction
                         {
-                            //buy
+                            TaxableEvent = false,
+                            Amount = record.AmountOut,
+                            AmountAssetType = record.CurrencyOut?.ToLower(),
+                            Sequence = record.Sequence,
+                            TransactionDate = record.TransactionDate,
+                            TransactionType = Shared.Enums.TransactionEventType.buy,
+                            IsNFT = false,
+                            //ExchangeRateCurrency = record.ExchangeCurrency,
+                            //ExchangeRateValue = record.ExchangeRate
+                        });
+                        break;
+                    }
+                default:
+                    {
+                        break;
+                    }
+            }
 
-                            flattenRecords.Add(new CryptoUserTransaction
-                            {
-                                TaxableEvent = false,
-                                Amount = record.AmountOut,
-                                AmountAssetType = record.CurrencyOut?.ToLower(),
-                                Sequence = record.Sequence,
-                                TransactionDate = record.TransactionDate,
-                                TransactionType = Shared.Enums.TransactionEventType.buy,
-                                IsNFT = false,
-                                //ExchangeRateCurrency = record.ExchangeCurrency,
-                                //ExchangeRateValue = record.ExchangeRate
-                            });
-                            break;
-                        }
-                    default:
-                        {
-                            break;
-                        }
-                }
-           
 
             return flattenRecords;
         }
 
-        private static InvalidCryptoUserTransaction ValidateCryptoTransactionRecords(List<CryptoUserTransaction> transactions)
+        private static InvalidCryptoUserTransaction? ValidateCryptoTransactionRecords(List<CryptoUserTransaction> transactions)
         {
             List<TransactionReferenceTrail> transactionLog = new();
             InvalidCryptoUserTransaction invalidCryptoUserTransactions = new();
@@ -430,7 +633,7 @@ namespace ExchangeRateManagerAPI.Services
             {
                 transaction.Approved = true; // auto approve all transactions
 
-                decimal amount = transaction.TransactionType  == Shared.Enums.TransactionEventType.sell
+                decimal amount = transaction.TransactionType == Shared.Enums.TransactionEventType.sell
                     ? Math.Abs(transaction.Amount ?? 0)
                     : transaction.Amount ?? 0;
 
@@ -472,8 +675,8 @@ namespace ExchangeRateManagerAPI.Services
 
                                 tokenBalances[t.AmountAssetType] = availableBalanceBefore + transactionAmount;
                                 decimal availableBalanceAfter = tokenBalances[t.AmountAssetType];
-                                
-                                 
+
+
                                 transactionLog.Add(new TransactionReferenceTrail
                                 {
                                     Sequence = t.Sequence,
@@ -483,9 +686,9 @@ namespace ExchangeRateManagerAPI.Services
                                     AssetType = t.AmountAssetType,
                                     BalanceAfter = availableBalanceAfter
                                 });
-                                
 
-                               
+
+
                             }
 
                             if (t == transaction) // Stop at the problematic transaction
@@ -498,7 +701,7 @@ namespace ExchangeRateManagerAPI.Services
                         invalidCryptoUserTransactions.AssetType = problematicAsset;
                         invalidCryptoUserTransactions.AvailableBalance = tokenBalances.ContainsKey(transaction.AmountAssetType) ? tokenBalances[transaction.AmountAssetType] : 0;
                         invalidCryptoUserTransactions.TransactedBalance = amount;
-                         
+
 
                         return invalidCryptoUserTransactions;
                     }
@@ -507,7 +710,7 @@ namespace ExchangeRateManagerAPI.Services
             }
 
             // Return null if all transactions are valid
-            return new InvalidCryptoUserTransaction();
+            return null;
         }
 
         /// <summary>
@@ -558,11 +761,11 @@ namespace ExchangeRateManagerAPI.Services
                         updatedRecord.InternalNotes = sellRecord.InternalNotes;
 
                         string sourceCurrency = sellRecord.AmountAssetType ?? string.Empty;
-                        
+
                         DateTime? exchangeRateDay = sellRecord.TransactionDate?.ToUniversalTime().Date; //using UTC to lookup
                         DateTime? exchangeRateMaxOffset = exchangeRateDay?.AddDays(-7); //used to determine how many days we can look back in case of no exchange rates being found for the given day
                         string targetCurrency = sourceCurrency; // string.Empty;
-                       // string transactionType = sellRecord.TransactionType ?? string.Empty;
+                                                                // string transactionType = sellRecord.TransactionType ?? string.Empty;
                         decimal exchangeRate = 0m;
 
                         //skip looking up exchange rate, if below conditions matches
@@ -822,7 +1025,7 @@ namespace ExchangeRateManagerAPI.Services
                         DateTime? exchangeRateDay = sellNFTRecord.TransactionDate?.ToUniversalTime().Date; //using UTC to lookup
                         DateTime? exchangeRateMaxOffset = exchangeRateDay?.AddDays(-7); //used to determine how many days we can look back in case of no exchange rates being found for the given day
                         string targetCurrency = sourceCurrency; // string.Empty;
-                       // string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
+                                                                // string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
                         decimal exchangeRate = 0m;
 
                         //  int iterationCount = 0;
@@ -934,7 +1137,7 @@ namespace ExchangeRateManagerAPI.Services
                         DateTime? exchangeRateDay = sellNFTRecord.TransactionDate?.ToUniversalTime().Date; //using UTC to lookup
                         DateTime? exchangeRateMaxOffset = exchangeRateDay?.AddDays(-7); //used to determine how many days we can look back in case of no exchange rates being found for the given day
                         string targetCurrency = sourceCurrency; // string.Empty;
-                       // string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
+                                                                // string transactionType = sellNFTRecord.TransactionType ?? string.Empty;
                         decimal exchangeRate = 0m;
 
                         //  int iterationCount = 0;
@@ -1037,7 +1240,159 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
+        public async Task<List<TaxReportSummary>> GetTaxReportSummary(int taxYear=0, decimal capitalGainTaxPercentage = 30m )
+        {
+            List<TaxReportDetail> taxReports = await GetTaxReportDetails();
 
+            var summary = taxReports
+                .GroupBy(r => r.TaxYear )
+                .Select(g => new TaxReportSummary
+                {
+                    TaxYear = g.Key,
+                    TaxCurrency = taxReports.First().TaxCurrency,
+                    TotalSaleProceeds = g.Sum(r => r.SaleProceeds),
+                    TotalCapitalGains = g.Sum(r => r.CapitalGains),
+                    CapitalGainTaxPercentage = capitalGainTaxPercentage,
+                    TaxesDue = g.Sum(r => r.CapitalGains) * capitalGainTaxPercentage / 100
+                })
+                .ToList();
+
+            if(taxYear < 0)
+            {
+                return summary.OrderBy(x => x.TaxYear).ToList();
+            }
+            else
+            {
+                
+                return summary.Where(x => x.TaxYear == (taxYear==0?GetAustralianTaxYear(DateTime.Now):taxYear)).OrderBy(x=>x.TaxYear).ToList();
+            }
+
+             
+        }
+
+        public async Task<List<TaxReportDetail>> GetTaxReportDetails(int taxYear = 0, decimal capitalGainTaxPercentage = 30m)
+        {
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var transactions = await dbContext.CryptoUserTransactions.ToListAsync();
+
+            
+            List<TaxReportDetail> taxReports = new List<TaxReportDetail>();
+            decimal totalCapitalGains = 0.0m;
+
+            // Group transactions by asset type
+            var groupedTransactions = transactions.GroupBy(t => t.AmountAssetType);
+
+            foreach (var assetGroup in groupedTransactions)
+            {
+                var assetTransactions = assetGroup.OrderBy(t => t.TransactionDate).ToList();
+                var holdings = new List<Holding>();
+
+                foreach (var transaction in assetTransactions)
+                {
+                    if (!transaction.TaxableEvent)
+                    {
+                        // Add to holdings if it's a buy transaction
+                        // holdings.Add(new Holding(transaction.Amount??0m, transaction.ExchangeRateValue??0m, transaction.AmountAssetType, transaction.ExchangeRateCurrency));
+                        holdings.Add(new Holding(transaction.Amount ?? 0m, transaction.ExchangeRateValue ?? 0m, transaction.AmountAssetType, transaction.ExchangeRateCurrency, transaction?.TransactionDate ?? DateTime.MinValue, transaction.Sequence));
+                    }
+                    else
+                    {
+                        // Process sell transactions using HIFO
+                        decimal remainingAmountToSell = transaction.Amount ?? 0m;
+                        decimal costBase = 0.0m;
+                        List<Holding> usedHoldings = new List<Holding>();
+
+                        // Sort holdings by exchange rate value in descending order (HIFO)
+                        holdings = holdings.OrderByDescending(h => h.ExchangeRateValue).ToList();
+
+                        foreach (var holding in holdings.ToList())
+                        {
+                            if (remainingAmountToSell <= 0)
+                                break;
+
+                            if (holding.Amount >= remainingAmountToSell)
+                            {
+                                costBase += remainingAmountToSell * holding.ExchangeRateValue;
+                                usedHoldings.Add(new Holding(remainingAmountToSell, holding.ExchangeRateValue, holding.AmountAssetType, holding.ExchangeRateCurrency, holding.BuyDate, holding.Sequence));
+                                holding.Amount -= remainingAmountToSell;
+                                remainingAmountToSell = 0;
+                            }
+                            else
+                            {
+                                costBase += holding.Amount * holding.ExchangeRateValue;
+                                usedHoldings.Add(new Holding(holding.Amount, holding.ExchangeRateValue, holding.AmountAssetType, holding.ExchangeRateCurrency, holding.BuyDate, holding.Sequence));
+                                remainingAmountToSell -= holding.Amount;
+                                holdings.Remove(holding);
+                            }
+                        }
+
+                        decimal saleProceeds = transaction.Value ?? 0m;
+                        decimal capitalGain = saleProceeds - costBase;
+                        bool isDiscounted = false;
+
+                        // Apply CGT discount if held for more than 12 months
+                        if (DateTime.Now.Year - transaction?.TransactionDate?.Year > 1)
+                        {
+                            capitalGain *= 0.5m;
+                            isDiscounted = true;
+                        }
+
+                        foreach (var usedHolding in usedHoldings)
+                        {
+
+
+                            taxReports.Add(new TaxReportDetail
+                            {
+                                TaxYear = GetAustralianTaxYear(transaction?.TransactionDate ?? DateTime.Now),
+                                Asset = usedHolding.AmountAssetType,
+                                SellDate = DateOnly.FromDateTime(transaction?.TransactionDate ?? DateTime.MinValue),
+                                QuantitySold = usedHolding.Amount,
+                                SellExchangeRate = transaction?.ExchangeRateValue ?? 0m,
+                                SellRecordSequenceNr = transaction.Sequence,
+                                SaleProceeds = saleProceeds,
+                                BuyDate = DateOnly.FromDateTime(usedHolding.BuyDate),
+                                BuyExchangeRate = usedHolding.ExchangeRateValue,
+                                BuyRecordSequenceNr = usedHolding.Sequence,
+                                CapitalGains = capitalGain,
+                                QuantityRemaining = holdings.FirstOrDefault(h => h.AmountAssetType == usedHolding.AmountAssetType)?.Amount ?? 0m, // Added QuantityRemaining
+                                CapitalGainTaxPercentage = capitalGainTaxPercentage,
+                                TaxesDue = capitalGain * capitalGainTaxPercentage / 100,
+                                IsDiscounted = isDiscounted,
+                                TotalHoldingDays = (transaction?.TransactionDate - usedHolding?.BuyDate)?.Days ?? 0,
+                                TaxCurrency = transaction.ExchangeRateCurrency
+                            });
+                        }
+
+                        //  totalCapitalGains += capitalGain;
+                    }
+                }
+            }
+
+
+            if (taxYear < 0)
+            {
+                return taxReports.OrderBy(x=>x.SellDate).ToList();
+            }
+            else
+            {
+
+                return taxReports.Where(x => x.TaxYear == (taxYear == 0 ? GetAustralianTaxYear(DateTime.Now) : taxYear)).OrderBy(x=>x.SellDate).ToList();
+            }
+             
+        }
+
+        private int GetAustralianTaxYear(DateTime date)
+        {
+            int year = date.Year;
+            if (date.Month >= 7) // If the month is July (7) or later
+            {
+                return year + 1; // The tax year is the next year
+            }
+            else
+            {
+                return year; // The tax year is the current year
+            }
+        }
 
 
     }

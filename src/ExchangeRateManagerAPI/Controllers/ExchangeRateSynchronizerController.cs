@@ -1,3 +1,4 @@
+using ExchangeRateManagerAPI.Model;
 using ExchangeRateManagerAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
@@ -19,11 +20,11 @@ namespace ExchangeRateManagerAPI.Controllers
         }
 
         [HttpPost("StartSynchronisation")]
-        public IActionResult StartSynchronisation([FromBody] string fromDateString = "20230701")
+        public IActionResult StartSynchronisation([FromBody] StartSynchronisationRequest req)
         {
 
             //check that the fromDateString is in the currect format yyyyMMdd
-            if (!DateTime.TryParseExact(fromDateString, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+            if (!DateTime.TryParseExact(req.fromDateString, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
             {
                 return BadRequest("Invalid date format. Please use yyyyMMdd");
             }
@@ -62,9 +63,9 @@ namespace ExchangeRateManagerAPI.Controllers
 
      
         [HttpPost("StartCurrencyConversion")]
-        public IActionResult StartCurrencyConversion([FromBody] string targetCurrency = "aud")
+        public IActionResult StartCurrencyConversion([FromBody] StartCurrencyConversionRequest req)
         {
-            var taskId = _syncService.StartCurrencyConversionTask(targetCurrency);
+            var taskId = _syncService.StartCurrencyConversionTask(req.targetCurrency);
 
             var checkUrl = Url.Action(nameof(CheckCurrencyConversionTask), new { taskId });
             return Accepted(checkUrl);
