@@ -1273,6 +1273,12 @@ namespace ExchangeRateManagerAPI.Services
             using var dbContext = _dbContextFactory.CreateDbContext();
             var transactions = await dbContext.CryptoUserTransactions.ToListAsync();
 
+            //get transactions which have a 0 value for all exchange rates
+            var invalidTransactions = transactions.Where(x => x.ExchangeRateValue == 0).ToList();
+
+            //now we need to augment the transactions with these exchange rates with the nearest available data from the exchange rates
+
+
 
             //Get holdings
             var cryptoCollection = new List<Holding>();
@@ -1322,6 +1328,7 @@ namespace ExchangeRateManagerAPI.Services
                         TaxRecord.Asset = matchedCollections.Name;
                         TaxRecord.SellAmount = sellAmount;
                         TaxRecord.SellDate = taxableTransactions.TransactionDate;
+                        TaxRecord.TaxYear = GetAustralianTaxYear(taxableTransactions.TransactionDate);
 
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0m;
 
@@ -1369,7 +1376,7 @@ namespace ExchangeRateManagerAPI.Services
                         TaxRecord.Asset = matchedCollections.Name;
                         TaxRecord.SellAmount = availableAmount;
                         TaxRecord.SellDate = taxableTransactions.TransactionDate;
-
+                        TaxRecord.TaxYear = GetAustralianTaxYear(taxableTransactions.TransactionDate);
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0m;
 
                         //do we apply discount
