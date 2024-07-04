@@ -130,7 +130,16 @@ namespace ExchangeRateManagerAPI.Services
         {
             var toDate = DateTime.UtcNow.Date;
             var uriPath = ConstructUriPath(exchangeInfo.Kind ?? string.Empty, exchangeInfo.ExchangeSymbol ?? string.Empty, exchangeInfo.ExchangeCurrency ?? string.Empty, fromDate, toDate);
-            var coinInfo = await _client.GetAsync(uriPath);
+
+
+            //do a get request to the API ensure to remove all http headers before sending
+            // _client.DefaultRequestHeaders.Clear();
+
+            _client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3");
+
+            var coinInfo = await _policy.ExecuteAsync(() => _client.GetAsync(uriPath));
+
+           // var coinInfo = await _client.Get(uriPath);
             var exChangeRates = new List<ExchangeRate>();
             //List<DateTime> missingDates = new List<DateTime>();
 

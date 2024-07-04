@@ -160,7 +160,14 @@
     "ExchangeName": "CoinGecko",
     "ExchangeSymbol": "orbit-chain",
     "ExchangeCurrency": "aud"
+  },
+  {
+    "Kind": "crypto",
+    "Symbol": "pack",
+    "ExchangeName": "CoinGecko",
+    "ExchangeSymbol": "hashpack",
+    "ExchangeCurrency": "aud"
   }
 
-  
+
 ]
