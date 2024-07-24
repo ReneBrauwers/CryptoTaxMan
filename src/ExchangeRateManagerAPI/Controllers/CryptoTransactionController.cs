@@ -94,7 +94,7 @@ namespace ExchangeRateManagerAPI.Controllers
         }
 
         [HttpPost("ProcessCryptoUserTransactionsStaging")]
-        public async Task<IActionResult> ProcessCryptoUserTransactionsStaging([FromBody] ProcessCryptoUserTransactionsStagingRequest req)
+        public IActionResult ProcessCryptoUserTransactionsStaging([FromBody] ProcessCryptoUserTransactionsStagingRequest req)
         {
 
             var taskId = _databaseService.StartProcessCryptoUserTransactionsStagingTask(async () =>
@@ -105,23 +105,7 @@ namespace ExchangeRateManagerAPI.Controllers
 
             var checkUrl = Url.Action(nameof(CheckProcessCryptoUserTransactionsStagingTask), new { taskId });
             return Accepted(checkUrl);
-            //var result = await _databaseService.ProcessCryptoUserTransactionsStaging(req.baseCurrency);
-            //if (result.error)
-            //{
-            // if (result.details != null)
-            // {
-            //   return BadRequest(new { Error = result.message, Details = result.details });
-            // }
-            //  else
-            //  {
-            //      return BadRequest(new { Error = result.message });
-            //  }
-
-            // }
-            //else
-            // {
-            //    return Ok(new { Message = $"{result.records} {result.message}" });
-            //}
+         
 
 
         }
@@ -145,7 +129,10 @@ namespace ExchangeRateManagerAPI.Controllers
                 return StatusCode(500, new { ErrorMessage = error.Message, Exception = error.ToString() });
             }
 
-            return Ok(result);
+            //return result include all result items;
+
+            return Ok(new { Message = $"{result.records} {result.message}",Details = result.details });
+           
         }
 
         [HttpPost("GetTaxReportDetails")]
@@ -203,6 +190,65 @@ namespace ExchangeRateManagerAPI.Controllers
             }
 
 
+        }
+
+        [HttpPost("GetCryptoUserTransactions")]
+        public async Task<IActionResult> GetCryptoUserTransactions([FromBody] CryptoUserTransactionsRequest req)
+        {
+            DateTime startDate = DateTime.MinValue;
+            DateTime endDate = DateTime.MaxValue;
+            //check that the fromDateString is in the currect format yyyyMMdd
+            if (!string.IsNullOrWhiteSpace(req.startDate) && !DateTime.TryParseExact(req.startDate, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out startDate))
+            {
+                return BadRequest("Invalid start date format. Please use yyyyMMdd");
+            }
+
+            if (!string.IsNullOrWhiteSpace(req.endDate) &&!DateTime.TryParseExact(req.endDate, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out endDate))
+            {
+                return BadRequest("Invalid end date format. Please use yyyyMMdd");
+            }
+
+            try
+            {
+                var result = await _databaseService.GetCryptoUserTransactions(startDate, endDate, req.asset);
+
+                //given the result, calculate the saldo remaining for each transaction for a given asset. When the transaction is a buy, the saldo is increased, when the transaction is a sell, the saldo is decreased.
+                foreach (var groupedUserTransactions in result.GroupBy(x=>x.AmountAssetType))
+                {
+                    decimal saldo = 0;
+                    foreach(var item in groupedUserTransactions.OrderBy(x=>x.TransactionDate))
+                    {
+                        if(item.TransactionType == Shared.Enums.TransactionEventType.buy)
+                        {
+                            saldo += item.Amount;
+                        }
+                        else if(item.TransactionType == Shared.Enums.TransactionEventType.sell)
+                        {
+                            saldo -= item.Amount;
+                        }
+
+                        item.InternalNotes = $"{saldo.ToString()} {groupedUserTransactions.Key} remaining";
+                    }
+                   
+                }
+                
+              
+
+                //if req.formatAsCSV is true, return the result as a CSV file
+                if(req.formatAsCSV)
+                {
+                    var engine = new FileHelperEngine<CryptoUserTransaction>();
+                    engine.HeaderText = engine.GetFileHeader();
+                    var outputString = engine.WriteString(result); // flattenedRecords);
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "CryptoUserTransactions.csv");
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
         }
     }
 }

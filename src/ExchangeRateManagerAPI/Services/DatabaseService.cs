@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Polly;
 using Shared.Models;
 using System;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace ExchangeRateManagerAPI.Services
@@ -128,6 +129,7 @@ namespace ExchangeRateManagerAPI.Services
         {
             int recordsAffected = 0;
             InvalidCryptoUserTransaction? invalidTransactions = null;
+            decimal exchangeRateAllowedFluctuation = _config.GetValue<decimal>("exchangeRateFluctuationThresholdPercentage", 100m);
             string responseMessage = string.Empty;
             bool errorOccured = false;
             try
@@ -189,10 +191,10 @@ namespace ExchangeRateManagerAPI.Services
                 foreach (var transaction in transactions)
                 {
                     StatusMessage = $"Processing transaction {counter++} of {transactions.Count}";
-                   // if (transaction.TransactionDate is null)
-                   // {
-                   //     continue;
-                   // }
+                    // if (transaction.TransactionDate is null)
+                    // {
+                    //     continue;
+                    // }
 
 
                     ExchangeRate? exchangeRate = null;
@@ -227,28 +229,118 @@ namespace ExchangeRateManagerAPI.Services
                     } while (true);
 
 
-
-                    //var foundExchangeRate =  dbContext.ExchangeRates.Find(transaction.TransactionDate, transaction.AmountAssetType, baseExchangeCurrency);
-
-                    // var exchangeRate = await FetchExchangeRateInformation(transaction.TransactionDate ?? DateTime.Now, transaction.AmountAssetType, baseExchangeCurrency);
+                    //we are going to enhance this piece of code with logic which will check for huge fluctuations in exchange rates and if found we will flag the transaction for manual review
+                    
                     if (exchangeRate is not null)
                     {
-                        //if transaction type is a buy then use the high rate, else use the low rate
+
+                        //check for huge fluctuations in exchange rates
+                        if(Math.Abs(exchangeRate.OpenClosePercentageDifference??0m) > exchangeRateAllowedFluctuation || Math.Abs(exchangeRate.LowHighPercentageDifference ?? 0m) > exchangeRateAllowedFluctuation)
+                        {
+                            transaction.ReviewRequired = true;
+                            transaction.Approved = false;
+                           
+                        }
+
+                        //if transaction type is a buy then use the highest rate choose between the open/close average and the close rate to satisfy tax office conditions
                         if (transaction.TransactionType == Shared.Enums.TransactionEventType.buy)
                         {
-                            transaction.ExchangeRateValue = exchangeRate.High;
+                            decimal buyExchangeRateToUse = 0m;
+                            //in case that the buy is registed as additional income, then we will use the lowest buy rate on a given day to optimise for tax purposes
+                            if (transaction.ReportableAsIncome)
+                            {
+                               
+                                    //determine which rate to use; choose between OpenCloseAverage, LowHighAverage and Close
+                                    buyExchangeRateToUse = Math.Min(exchangeRate.OpenCloseAverage, Math.Min(exchangeRate.LowHighAverage, exchangeRate.Close));
+                               
+                            }
+                            else
+                            {
+                                //determine which rate to use; choose between OpenCloseAverage, LowHighAverage and Close
+                                 buyExchangeRateToUse = Math.Max(exchangeRate.OpenCloseAverage, Math.Max(exchangeRate.LowHighAverage, exchangeRate.Close));
+                            }
+
+                            //if(transaction.Approved == false)
+                            //{
+                            //    buyExchangeRateToUse = 0m;
+                            //}
+
+                           
+
+                            transaction.ExchangeRateValue = buyExchangeRateToUse;
                             transaction.ExchangeRateCurrency = exchangeRate.ExchangeCurrency;
-                            transaction.Value = transaction.Amount * exchangeRate.High;
+                            transaction.Value = transaction.Amount * buyExchangeRateToUse;
+
+                            string exchangeRateUsed;
+
+                            if (buyExchangeRateToUse == exchangeRate.OpenCloseAverage)
+                            {
+                                exchangeRateUsed = nameof(exchangeRate.OpenCloseAverage);
+                            }
+                            else if (buyExchangeRateToUse == exchangeRate.LowHighAverage)
+                            {
+                                exchangeRateUsed = nameof(exchangeRate.LowHighAverage);
+                            }
+                            else
+                            {
+                                exchangeRateUsed = nameof(exchangeRate.Close);
+                            }
+
+                            if (transaction.ReviewRequired)
+                            {
+                                transaction.InternalNotes = $"Exchange rate fluctuation exceeds threshold. OCT: {exchangeRate.OpenClosePercentageDifference} LHT: {exchangeRate.LowHighPercentageDifference}, manual review required. (Exchange rate used: {exchangeRateUsed})";
+                            }
+                            else
+                            {
+                                transaction.InternalNotes = $"Exchange rate used: {exchangeRateUsed}";
+                            }
+
                         }
+                        //transaction is sell so we choose the lowest rate between open/close average and the close rate to satisfy tax office conditions
                         else
                         {
-                            transaction.ExchangeRateValue = exchangeRate.Low;
+                            var sellExchangeRateToUse = Math.Min(exchangeRate.OpenCloseAverage, Math.Min(exchangeRate.LowHighAverage, exchangeRate.Close));
+
+                            transaction.ExchangeRateValue = sellExchangeRateToUse;
                             transaction.ExchangeRateCurrency = exchangeRate.ExchangeCurrency;
-                            transaction.Value = transaction.Amount * exchangeRate.Low;
+                            transaction.Value = transaction.Amount * sellExchangeRateToUse;
+
+                            string exchangeRateUsed;
+
+                            if (sellExchangeRateToUse == exchangeRate.OpenCloseAverage)
+                            {
+                                exchangeRateUsed = nameof(exchangeRate.OpenCloseAverage);
+                            }
+                            else if (sellExchangeRateToUse == exchangeRate.LowHighAverage)
+                            {
+                                exchangeRateUsed = nameof(exchangeRate.LowHighAverage);
+                            }
+                            else
+                            {
+                                exchangeRateUsed = nameof(exchangeRate.Close);
+                            }
+
+                            if (transaction.ReviewRequired)
+                            {
+                                transaction.InternalNotes = $"Exchange rate fluctuation exceeds threshold. OCT: {exchangeRate.OpenClosePercentageDifference} LHT: {exchangeRate.LowHighPercentageDifference}, manual review required. (Exchange rate used: {exchangeRateUsed})";
+                            }
+                            else
+                            {
+                                transaction.InternalNotes = $"Exchange rate used: {exchangeRateUsed}";
+                            }
+
+
                         }
 
 
 
+                    }
+                    else
+                    {
+                        // transaction.UsesManualAssignedExchangeRate = true;
+                        transaction.ExchangeRateValue = 0m;
+                        transaction.ExchangeRateCurrency = baseExchangeCurrency;
+                        transaction.Value = 0m;
                     }
                 }
 
@@ -410,6 +502,7 @@ namespace ExchangeRateManagerAPI.Services
                             Sequence = record.Sequence,
                             TransactionDate = record.TransactionDate ?? DateTime.MinValue,
                             TransactionType = Shared.Enums.TransactionEventType.buy,
+                            ReportableAsIncome = record.ReportableAsIncome ?? false,
                             //ExchangeRateCurrency = record.ExchangeCurrency,
                             //ExchangeRateValue = record.ExchangeRate,
                             IsNFT = false
@@ -491,7 +584,7 @@ namespace ExchangeRateManagerAPI.Services
 
 
                             sellRecord.TaxableEvent = true;
-                            sellRecord.Amount = record.AmountIn ?? 0m - record.AmountOut ?? 0m;
+                            sellRecord.Amount = (record.AmountIn ?? 0m) - (record.AmountOut ?? 0m);
                             sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
                             sellRecord.Sequence = record.Sequence;
                             sellRecord.TransactionDate = record.TransactionDate ?? DateTime.MinValue;
@@ -1240,33 +1333,62 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
-        public async Task<List<TaxReportSummary>> GetTaxReportSummary(int taxYear=0, decimal capitalGainTaxPercentage = 30m )
+        public async Task<List<TaxReportSummary>> GetTaxReportSummaryOld(int taxYear = 0, decimal capitalGainTaxPercentage = 30m)
         {
             List<TaxReportDetail> taxReports = await GetTaxReportDetails();
 
             var summary = taxReports
-                .GroupBy(r => r.TaxYear )
+                .GroupBy(r => r.TaxYear)
                 .Select(g => new TaxReportSummary
                 {
                     TaxYear = g.Key,
                     TaxCurrency = taxReports.First().Currency,
                     TotalSaleProceeds = g.Sum(r => r.SellPrice * r.SellAmount),
+                    TotalReportableAsIncome = 0m,
                     TotalCapitalGains = g.Sum(r => r.CapitalGainAmount)
                 })
                 .ToList();
 
-            if(taxYear < 0)
+            if (taxYear < 0)
             {
                 return summary.OrderBy(x => x.TaxYear).ToList();
             }
             else
             {
-                
-                return summary.Where(x => x.TaxYear == (taxYear==0?GetAustralianTaxYear(DateTime.Now):taxYear)).OrderBy(x=>x.TaxYear).ToList();
+
+                return summary.Where(x => x.TaxYear == (taxYear == 0 ? GetAustralianTaxYear(DateTime.Now) : taxYear)).OrderBy(x => x.TaxYear).ToList();
             }
 
-             
+
         }
+
+        public async Task<List<TaxReportSummary>> GetTaxReportSummary(int taxYear = 0, decimal capitalGainTaxPercentage = 30m)
+        {
+            List<TaxReportDetail> taxReports = await GetTaxReportDetails(taxYear, capitalGainTaxPercentage);
+
+            var tasks = taxReports
+                .GroupBy(r => r.TaxYear)
+                .Select(async g => new TaxReportSummary
+                {
+                    TaxYear = g.Key,
+                    TaxCurrency = taxReports.First().Currency,
+                    TotalSaleProceeds = g.Sum(r => r.SellPrice * r.SellAmount),
+                    TotalReportableAsIncome = await GetReportableIncome(g.Key),
+                    TotalCapitalGains = g.Sum(r => r.CapitalGainAmount)
+                });
+
+            var summary = await Task.WhenAll(tasks);
+
+            if (taxYear < 0)
+            {
+                return summary.OrderBy(x => x.TaxYear).ToList();
+            }
+            else
+            {
+                return summary.Where(x => x.TaxYear == (taxYear == 0 ? GetAustralianTaxYear(DateTime.Now) : taxYear)).OrderBy(x => x.TaxYear).ToList();
+            }
+        }
+
 
         public async Task<List<TaxReportDetail>> GetTaxReportDetails(int taxYear = 0, decimal capitalGainTaxPercentage = 30m)
         {
@@ -1294,9 +1416,9 @@ namespace ExchangeRateManagerAPI.Services
                 });
             }
 
-            var endDate = new DateTime((taxYear==0?DateTime.Now.Year:taxYear), 7, 1);
-             var result = new List<TaxReportDetail>();
- 
+            var endDate = new DateTime((taxYear == 0 ? DateTime.Now.Year : taxYear), 7, 1);
+            var result = new List<TaxReportDetail>();
+
 
             //we will be leveraging High-in First-out (HIFO)
             foreach (var taxableTransactions in transactions.Where(x => x.TransactionDate < endDate && x.TaxableEvent).OrderBy(x => x.TransactionDate))
@@ -1423,6 +1545,35 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
+        public async Task<decimal> GetReportableIncome(int taxYear)
+        {
+            var taxYearDates = GetTaxYearDates(taxYear);
+            var fromDate = taxYearDates.start.ToDateTime(new TimeOnly(0, 0));
+            var endDate = taxYearDates.end.ToDateTime(new TimeOnly(23, 59));
+
+            //now sum ReportableIncome from CryptoUserTransactions given the date time range
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var transactions = await dbContext.CryptoUserTransactions.Where(x => x.TransactionDate >= fromDate && x.TransactionDate <= endDate && x.ReportableAsIncome).ToListAsync();
+            var total = transactions.Sum(x => x.Value);
+            return total ?? 0m;
+        }
+
+        public async Task<List<CryptoUserTransaction>> GetCryptoUserTransactions(DateTime startDate, DateTime endDate, string? asset)
+        {
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            //if asset is provided, filter by asset
+            if (!string.IsNullOrWhiteSpace(asset))
+            {
+                return await dbContext.CryptoUserTransactions.Where(x => x.TransactionDate >= startDate && x.TransactionDate <= endDate && x.AmountAssetType.ToLower() == asset.ToLower()).ToListAsync();
+
+            }
+            else
+            {
+                return await dbContext.CryptoUserTransactions.Where(x => x.TransactionDate >= startDate && x.TransactionDate <= endDate).ToListAsync();
+            }
+            //return transactions;
+        }
+
         private int GetAustralianTaxYear(DateTime date)
         {
             int year = date.Year;
@@ -1434,6 +1585,13 @@ namespace ExchangeRateManagerAPI.Services
             {
                 return year; // The tax year is the current year
             }
+        }
+
+        private (DateOnly start, DateOnly end) GetTaxYearDates(int taxYear)
+        {
+            var startDate = new DateOnly(taxYear - 1, 7, 1);
+            var endDate = new DateOnly(taxYear, 6, 30);
+            return (startDate, endDate);
         }
 
 

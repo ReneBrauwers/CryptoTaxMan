@@ -32,6 +32,8 @@ namespace Shared.Models
         [FieldOrder(9)]
         public decimal CapitalGainAmount { get; set; }
         [FieldOrder(10)]
+        public decimal ReportableAsIncome { get; set; }
+        [FieldOrder(11)]
         public string Calculation { get; set; }
     }
 }

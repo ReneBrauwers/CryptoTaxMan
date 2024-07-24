@@ -26,6 +26,7 @@ namespace ExchangeRateManagerAPI.Controllers
             //check that the fromDateString is in the currect format yyyyMMdd
             if (!DateTime.TryParseExact(req.fromDateString, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
             {
+
                 return BadRequest("Invalid date format. Please use yyyyMMdd");
             }
 
@@ -92,6 +93,39 @@ namespace ExchangeRateManagerAPI.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet("CalculateExchangeRateFluctuations")]
+        public IActionResult CalculateExchangeRateFluctuations()
+        {
+            var taskId = _syncService.StartCalculateExchangeRateFluctuations();
+
+            var checkUrl = Url.Action(nameof(CalculateExchangeRateFluctuations), new { taskId });
+            return Accepted(checkUrl);
+        }
+
+        [HttpGet("CalculateExchangeRateFluctuations/{taskId}")]
+        public IActionResult CheckCalculateExchangeRateFluctuationsTask(string taskId)
+        {
+            var (isCompleted, result, error) = _syncService.CheckCalculateExchangeRateFluctuationsTaskStatus(taskId);
+
+            if (!isCompleted)
+            {
+                return Accepted(new
+                {
+                    StatusUrl = Url.Action(nameof(CheckCurrencyConversionTask), new { taskId }),
+                    StatusMessage = _syncService.StatusMessage
+                });
+            }
+
+            if (error != null)
+            {
+                return StatusCode(500, new { ErrorMessage = error.Message, Exception = error.ToString() });
+            }
+
+            return Ok(result);
+        }
+
+        //CheckCalculateExchangeRateFluctuationsTaskStatus
 
     }
 }

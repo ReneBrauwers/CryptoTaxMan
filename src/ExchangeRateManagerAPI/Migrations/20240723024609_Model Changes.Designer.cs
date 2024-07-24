@@ -4,6 +4,7 @@ using ExchangeRateManagerAPI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExchangeRateManagerAPI.Migrations
 {
     [DbContext(typeof(CryptoTaxManDbContext))]
-    partial class CryptoTaxManDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240723024609_Model Changes")]
+    partial class ModelChanges
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -56,9 +59,6 @@ namespace ExchangeRateManagerAPI.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("ReportableAsIncome")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("ReviewRequired")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("TaxableEvent")
@@ -195,16 +195,10 @@ namespace ExchangeRateManagerAPI.Migrations
                     b.Property<decimal>("LowHighAverage")
                         .HasColumnType("decimal(65,30)");
 
-                    b.Property<decimal?>("LowHighPercentageDifference")
-                        .HasColumnType("decimal(65,30)");
-
                     b.Property<decimal>("Open")
                         .HasColumnType("decimal(65,30)");
 
                     b.Property<decimal>("OpenCloseAverage")
-                        .HasColumnType("decimal(65,30)");
-
-                    b.Property<decimal?>("OpenClosePercentageDifference")
                         .HasColumnType("decimal(65,30)");
 
                     b.HasKey("Date", "Symbol", "ExchangeCurrency");

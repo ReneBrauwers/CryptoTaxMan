@@ -16,6 +16,9 @@ public class CryptoUserTransactionStagingMap : ClassMap<CryptoUserTransactionSta
         Map(m => m.TransactionEvent).Name("TransactionEvent");
         Map(m => m.Fee).Name("Fee").Optional();
         Map(m => m.FeeCurrency).Name("FeeCurrency").Optional();
+        Map(m => m.ReportableAsIncome).Name("ReportableAsIncome").Optional()
+            .TypeConverterOption.BooleanValues(true, true, "yes", "YES", "y", "Y", "1")
+            .TypeConverterOption.BooleanValues(false, false, "no", "NO", "n", "N", "0");           
         Map(m => m.Notes).Name("Notes").Optional();      
     }
 }

@@ -5,4 +5,6 @@
    public record StartSynchronisationRequest(string fromDateString = "20230701");
 
     public record TaxSummaryReportRequest(int taxYear= -1, decimal capitalGainTaxPercentage = 30m, bool formatAsCSV = true);
+
+    public record CryptoUserTransactionsRequest(string? startDate, string? endDate, string? asset, bool formatAsCSV = true);
 }

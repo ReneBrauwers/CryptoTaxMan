@@ -21,6 +21,7 @@ namespace Shared.Models
         public string? ExchangeCurrency { get; set; }
         public string? Notes { get; set; }
         public bool? IsProcessed { get; set; } = false;
+        public bool? ReportableAsIncome { get; set; } = false;
 
     }
 }

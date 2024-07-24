@@ -4,6 +4,7 @@ using ExchangeRateManagerAPI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExchangeRateManagerAPI.Migrations
 {
     [DbContext(typeof(CryptoTaxManDbContext))]
-    partial class CryptoTaxManDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240723055844_add percentage difference column")]
+    partial class addpercentagedifferencecolumn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -56,9 +59,6 @@ namespace ExchangeRateManagerAPI.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("ReportableAsIncome")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("ReviewRequired")
                         .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("TaxableEvent")

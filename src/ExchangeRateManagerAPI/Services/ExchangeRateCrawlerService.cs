@@ -11,6 +11,7 @@ namespace ExchangeRateManagerAPI.Services
     {
         private readonly IDictionary<string, TaskCompletionSource<ExchangeRateSynchronisationResult>> _tasksExchangeRateSynchronisation = new Dictionary<string, TaskCompletionSource<ExchangeRateSynchronisationResult>>();
         private readonly IDictionary<string, TaskCompletionSource<int>> _tasksExchangeRateConversiom = new Dictionary<string, TaskCompletionSource<int>>();
+        private readonly IDictionary<string, TaskCompletionSource<int>> _tasksCalculateExchangeRateFluctuations = new Dictionary<string, TaskCompletionSource<int>>();
         private readonly IDictionary<string, Exception> _taskExceptions = new Dictionary<string, Exception>();
         private readonly ILogger<ExchangeRateCrawlerService> _logger;
         private readonly ISologenic _sologenicService;
@@ -120,6 +121,70 @@ namespace ExchangeRateManagerAPI.Services
 
             return taskId;
         }
+
+        public string StartCalculateExchangeRateFluctuations()
+        {
+            var taskId = Guid.NewGuid().ToString();
+            var tcs = new TaskCompletionSource<int>();
+            _tasksCalculateExchangeRateFluctuations.Add(taskId, tcs);
+
+            // Fetch exchange rates from database
+
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await Task.Run(() =>
+                    {
+                        int recordsAffected;
+                        try
+                        {
+
+                            //Get conversion paths
+                            // conversionResults.AddRange(ConvertCurrencies(targetCurrency));
+                            using var dbContext = _dbContextFactory.CreateDbContext();                            
+
+                            recordsAffected = CalculateExchangeRateFluctuations();
+                            
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Error during exchange rate fluctuation calculation: {ex.Message}");
+                            throw;
+                        }
+                        return recordsAffected;
+                    });
+
+                    tcs.SetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    tcs.SetException(ex);
+                    lock (_taskExceptions)
+                    {
+                        _taskExceptions[taskId] = ex;
+                    }
+                }
+            });
+
+            return taskId;
+        }
+
+        public (bool IsCompleted, int Result, Exception Error) CheckCalculateExchangeRateFluctuationsTaskStatus(string taskId)
+        {
+            if (_tasksCalculateExchangeRateFluctuations.TryGetValue(taskId, out var tcs))
+            {
+                if (tcs.Task.IsCompleted)
+                {
+                    _taskExceptions.TryGetValue(taskId, out var exception);
+                    return (true, tcs.Task.Result, exception);
+                }
+            }
+
+            return (false, -1, null);
+        }
+
 
         public (bool IsCompleted,int Result, Exception Error) CheckCurrencyConversionTaskStatus(string taskId)
         {
@@ -762,6 +827,29 @@ namespace ExchangeRateManagerAPI.Services
             return paths;
         }
 
+
+        private int CalculateExchangeRateFluctuations(string targetCurrency = "aud")
+        {
+            int recordsAffected = 0;
+
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var exchangeRates = dbContext.ExchangeRates.ToList();
+
+            if (exchangeRates is not null && exchangeRates.Any())
+            {
+                exchangeRates.ForEach(x =>
+                {
+                    x.OpenClosePercentageDifference = CalculatePercentageDifference(x.Open, x.Close);
+                    x.LowHighPercentageDifference = CalculatePercentageDifference(x.Low, x.High);
+                });
+
+            
+                recordsAffected = dbContext.SaveChanges();
+                
+            }
+
+            return recordsAffected;
+        }
         private async Task<int> AddExchangeRates(List<ExchangeRate> exchangeRates)
         {
             int recordsAdded = 0;
@@ -793,6 +881,13 @@ namespace ExchangeRateManagerAPI.Services
 
                 if (newExchangeRates is not null && newExchangeRates.Any())
                 {
+                    //calculate percentage difference from newechangerates using low and high values and store
+                    newExchangeRates.ForEach(x =>
+                    {
+                        x.OpenClosePercentageDifference = CalculatePercentageDifference(x.Open, x.Close);
+                        x.LowHighPercentageDifference = CalculatePercentageDifference(x.Low, x.High);
+                    });
+
                     newExchangeRates.ForEach(x => x.Symbol = x.Symbol.ToLower());
                     await dbContext.AddRangeAsync(newExchangeRates);
                     recordsAdded = dbContext.SaveChanges();
@@ -801,5 +896,31 @@ namespace ExchangeRateManagerAPI.Services
 
             return recordsAdded;
         }
+
+
+        private decimal CalculatePercentageDifference(decimal value1, decimal value2)
+        {
+            if (value1 == 0 && value2 == 0)
+            {
+                return 0; // No difference if both values are zero
+            }
+
+            decimal numerator;
+            decimal denominator;
+            if (value1 == 0)
+            {
+                numerator = value2 - value1;
+                denominator = value2; // Use value2 as the reference since value1 is zero
+            }
+            else
+            {
+                numerator = value2 - value1;
+                denominator = value1; // Use value1 as the reference
+            }
+
+            decimal percentageDifference = (numerator / denominator) * 100;
+            return percentageDifference;
+        }
+
     }
 }

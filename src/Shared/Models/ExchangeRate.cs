@@ -19,6 +19,8 @@ namespace Shared.Models
         public string? ExchangeCurrency { get; set; }
         public string? DataSource { get; set; }
         public bool LookupOptional { get; set; }
+        public decimal? OpenClosePercentageDifference { get; set; }
+        public decimal? LowHighPercentageDifference { get; set; }
     }
 
   

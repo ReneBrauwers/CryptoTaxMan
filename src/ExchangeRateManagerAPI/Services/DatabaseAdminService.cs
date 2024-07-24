@@ -156,7 +156,7 @@ namespace ExchangeRateManagerAPI.Services
                     foreach (var rate in exchangeRateGroup)
                     {
                         //2015-01-02 00:00:00
-                        stringBuilder.AppendLine($"INSERT INTO ExchangeRates (Symbol, Date, ExchangeCurrency, Open, Close, Low, High, OpenCloseAverage, LowHighAverage, DataSource, LookupOptional) VALUES ('{rate.Symbol.ToLower()}', '{rate.Date.ToString("yyyy-MM-dd HH:mm:ss")}', '{rate.ExchangeCurrency}', '{rate.Open}', '{rate.Close}','{rate.Low}','{rate.High}','{rate.OpenCloseAverage}','{rate.LowHighAverage}','{rate.DataSource}',{rate.LookupOptional});");
+                        stringBuilder.AppendLine($"INSERT INTO ExchangeRates (Symbol, Date, ExchangeCurrency, Open, Close, Low, High, OpenCloseAverage, LowHighAverage, DataSource, LookupOptional, OpenClosePercentageDifference, LowHighPercentageDifference) VALUES ('{rate.Symbol.ToLower()}', '{rate.Date.ToString("yyyy-MM-dd HH:mm:ss")}', '{rate.ExchangeCurrency}', '{rate.Open}', '{rate.Close}','{rate.Low}','{rate.High}','{rate.OpenCloseAverage}','{rate.LowHighAverage}','{rate.DataSource}',{rate.LookupOptional},{rate.OpenClosePercentageDifference},{rate.LowHighPercentageDifference});");
                         totalRecordsInserted++;
                       
                     }
