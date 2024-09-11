@@ -61,94 +61,103 @@ namespace ExchangeRateManagerAPI.Services
                 toCoinJsonInfo = result.Item2;
             }
             catch (HttpRequestException ex)
-            {
-                throw new HttpRequestException($"{ex.Message} - symbol {exchangeInfo.Symbol} exchange {exchangeInfo.ExchangeName}");
+            {                
+                throw new NotSupportedException($"{ex.Message} - symbol {exchangeInfo.Symbol} exchange {exchangeInfo.ExchangeName}");
             }
 
             if (toCoinJsonInfo.GetArrayLength() > 0)
             {
-
-
-                var lastDate = DateTime.MinValue;
-                var exChangeRatesTemp = new List<ExchangeRate>();
-                foreach (JsonElement price in toCoinJsonInfo.EnumerateArray())
+                try
                 {
-                    var epoch = price[0].GetInt64();
-                    var open = Convert.ToDecimal(price[1].GetString());
-                    var high = Convert.ToDecimal(price[2].GetString());
-                    var low = Convert.ToDecimal(price[3].GetString());
-                    var close = Convert.ToDecimal(price[4].GetString());
 
-                    //convert epoch to datetime
-
-                    DateTime date = new DateTime(1970, 1, 1, 0, 0, 0, 0); //from start epoch time
-                    date = date.AddSeconds(epoch); //add the seconds to the start DateTime
-
-                    //Data granularity is automatic (cannot be adjusted)
-                    //1 day from query time = 5 minute interval data
-                    //1 - 90 days from query time = hourly data
-                    //above 90 days from query time = daily data(00:00 UTC)
-                    exChangeRatesTemp.Add(new ExchangeRate()
+                    var lastDate = DateTime.MinValue;
+                    var exChangeRatesTemp = new List<ExchangeRate>();
+                    foreach (JsonElement price in toCoinJsonInfo.EnumerateArray())
                     {
-                        Date = date.Date,
-                        Open = open,
-                        Close = close,
-                        High = high,
-                        Low = low,
-                        ExchangeCurrency = exchangeInfo.ExchangeCurrency,
-                        Symbol = exchangeInfo.Symbol,
-                        DataSource = "Sologenic",
+                        var epoch = price[0].GetInt64();
+                        var open = Convert.ToDecimal(price[1].GetString());
+                        var high = Convert.ToDecimal(price[2].GetString());
+                        var low = Convert.ToDecimal(price[3].GetString());
+                        var close = Convert.ToDecimal(price[4].GetString());
+
+                        //convert epoch to datetime
+
+                        DateTime date = new DateTime(1970, 1, 1, 0, 0, 0, 0); //from start epoch time
+                        date = date.AddSeconds(epoch); //add the seconds to the start DateTime
+
+                        //Data granularity is automatic (cannot be adjusted)
+                        //1 day from query time = 5 minute interval data
+                        //1 - 90 days from query time = hourly data
+                        //above 90 days from query time = daily data(00:00 UTC)
+                        exChangeRatesTemp.Add(new ExchangeRate()
+                        {
+                            Date = date.Date,
+                            Open = open,
+                            Close = close,
+                            High = high,
+                            Low = low,
+                            ExchangeCurrency = exchangeInfo.ExchangeCurrency,
+                            Symbol = exchangeInfo.Symbol,
+                            DataSource = "Sologenic",
+                        });
+
+
+                    }
+
+                    var groupedResult = from e in exChangeRatesTemp
+                                        group e by e.Date;
+
+                    //cleanup exchangeRates / group by date and average
+                    exChangeRates = exChangeRatesTemp.GroupBy(x => x.Date).Select(x =>
+                    {
+                        //Logic used to derive the average
+                        var openValue = exChangeRatesTemp.Where(y => y.Date == x.Key).First().Open;
+                        var closeValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Last().Close;
+                        var lowValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Min(r => r.Low);
+                        var highValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Max(r => r.High);
+
+                        return new ExchangeRate()
+                        {
+                            Date = x.Key,
+                            Open = openValue,
+                            Close = closeValue,
+                            High = highValue,
+                            Low = lowValue,
+                            ExchangeCurrency = exchangeInfo.ExchangeCurrency,
+                            Symbol = exchangeInfo.Symbol,
+                            DataSource = "Sologenic"
+
+                        };
+
+                    }).ToList();
+
+                    //Update close with previous value
+                    exChangeRates.ForEach(x =>
+                    {
+
+                        var yesterday = x.Date.AddDays(-1);
+                        //get yesterdays value which is todays open
+                        try
+                        {
+                            var open = exChangeRates.Where(x => x.Date == yesterday).Select(x => x.Close).FirstOrDefault();
+                            x.Open = open > 0 ? open : x.Close;
+                            x.OpenCloseAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Open), Convert.ToDecimal(x.Close)), 2);
+                            x.LowHighAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Low), Convert.ToDecimal(x.High)), 2);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex.Message);
+                            throw new NotSupportedException($"{ex.Message} - symbol {exchangeInfo.Symbol} exchange {exchangeInfo.ExchangeName}");
+                            
+                        }
+
                     });
-
-
                 }
-
-                var groupedResult = from e in exChangeRatesTemp
-                                    group e by e.Date;
-
-                //cleanup exchangeRates / group by date and average
-                exChangeRates = exChangeRatesTemp.GroupBy(x => x.Date).Select(x =>
+                catch (Exception ex)
                 {
-                    //Logic used to derive the average
-                    var openValue = exChangeRatesTemp.Where(y => y.Date == x.Key).First().Open;
-                    var closeValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Last().Close;
-                    var lowValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Min(r => r.Low);
-                    var highValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Max(r => r.High);
-
-                    return new ExchangeRate()
-                    {
-                        Date = x.Key,
-                        Open = openValue,
-                        Close = closeValue,
-                        High = highValue,
-                        Low = lowValue,
-                        ExchangeCurrency = exchangeInfo.ExchangeCurrency,
-                        Symbol = exchangeInfo.Symbol,
-                        DataSource = "Sologenic"
-
-                    };
-
-                }).ToList();
-
-                //Update close with previous value
-                exChangeRates.ForEach(x =>
-                {
-
-                    var yesterday = x.Date.AddDays(-1);
-                    //get yesterdays value which is todays open
-                    try
-                    {
-                        var open = exChangeRates.Where(x => x.Date == yesterday).Select(x => x.Close).FirstOrDefault();
-                        x.Open = open > 0 ? open : x.Close;
-                        x.OpenCloseAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Open), Convert.ToDecimal(x.Close)), 2);
-                        x.LowHighAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Low), Convert.ToDecimal(x.High)), 2);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogInformation(ex.Message);
-                    }
-
-                });
+                    _logger.LogError(ex.Message);
+                    throw new NotSupportedException($"Failed to parse sologenic response: {ex.Message}");
+                }
             }
 
             return exChangeRates;
@@ -158,6 +167,7 @@ namespace ExchangeRateManagerAPI.Services
 
 
         }
+
 
         private async Task<Tuple<string, JsonElement>> GetData(string uriPath, string altUriPath)
         {

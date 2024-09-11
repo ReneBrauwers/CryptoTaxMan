@@ -47,14 +47,7 @@
     "ExchangeName": "Sologenic",
     "ExchangeSymbol": "FSE+rs1MKY54miDtMFEGyNuPd3BLsXauFZUSrj",
     "ExchangeCurrency": "xrp"
-  },
-  {
-    "Kind": "crypto",
-    "Symbol": "csc",
-    "ExchangeName": "Sologenic",
-    "ExchangeSymbol": "CSC+rCSCManTZ8ME9EoLrSHHYKW8PPwWMgkwr",
-    "ExchangeCurrency": "xrp"
-  },
+  },  
   {
     "Kind": "crypto",
     "Symbol": "xag",

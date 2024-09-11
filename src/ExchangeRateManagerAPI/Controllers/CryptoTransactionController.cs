@@ -9,6 +9,7 @@ using System.Text;
 using ExchangeRateManagerAPI.Model;
 using FileHelpers;
 using Microsoft.JSInterop;
+using Microsoft.AspNetCore.Http;
 
 namespace ExchangeRateManagerAPI.Controllers
 {
@@ -250,5 +251,66 @@ namespace ExchangeRateManagerAPI.Controllers
                 return BadRequest(new { Error = ex.Message });
             }
         }
+
+        [HttpGet("GetCurrentHoldings/{assetName}")]
+        public async Task<IActionResult> GetCurrentHoldings([FromRoute] string assetName)
+        {
+            if(string.IsNullOrWhiteSpace(assetName))
+            {
+                return BadRequest("Invalid asset name. Please provide a valid asset name.");
+            }
+
+            try
+            {
+                var result = await _databaseService.GetCurrentHoldings(assetName);
+                return Content(result, "text/html");
+                 
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetProfitsReport/{assetName}")]
+        public async Task<IActionResult> GetProfitsReport([FromRoute] string assetName)
+        {
+            if (string.IsNullOrWhiteSpace(assetName))
+            {
+                return BadRequest("Invalid asset name. Please provide a valid asset name.");
+            }
+
+            try
+            {
+                var result = await _databaseService.CalculateProfits(assetName);
+                return Ok(result);
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        [HttpGet("GetBreakEvenPoint/{assetName}")]
+        public async Task<IActionResult> GetBreakEvenPoint([FromRoute] string assetName)
+        {
+            if (string.IsNullOrWhiteSpace(assetName))
+            {
+                return BadRequest("Invalid asset name. Please provide a valid asset name.");
+            }
+
+            try
+            {
+                var result = await _databaseService.CalculateBreakEvenPrice(assetName);
+                return Ok(result);
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+        //CalculateBreakEvenPrice
     }
 }

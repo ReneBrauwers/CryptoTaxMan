@@ -139,7 +139,7 @@ namespace ExchangeRateManagerAPI.Services
 
             var coinInfo = await _policy.ExecuteAsync(() => _client.GetAsync(uriPath));
 
-           // var coinInfo = await _client.Get(uriPath);
+            // var coinInfo = await _client.Get(uriPath);
             var exChangeRates = new List<ExchangeRate>();
             //List<DateTime> missingDates = new List<DateTime>();
 

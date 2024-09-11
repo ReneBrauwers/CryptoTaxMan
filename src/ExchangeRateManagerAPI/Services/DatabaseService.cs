@@ -4,10 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Polly;
+using Shared.Enums;
 using Shared.Models;
 using System;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 
 namespace ExchangeRateManagerAPI.Services
 {
@@ -464,7 +467,8 @@ namespace ExchangeRateManagerAPI.Services
                     ExchangeSymbol = x.ExchangeSymbol,
                     Kind = x.Kind,
                     Symbol = x.Symbol,
-                    LastExchangeRateEntryDate = null
+                    LastExchangeRateEntryDate = null,
+                    SyncedOn = null                    
                 }).ToList();
 
                 using var dbContext = _dbContextFactory.CreateDbContext();
@@ -1451,6 +1455,7 @@ namespace ExchangeRateManagerAPI.Services
                         TaxRecord.SellAmount = sellAmount;
                         TaxRecord.SellDate = taxableTransactions.TransactionDate;
                         TaxRecord.TaxYear = GetAustralianTaxYear(taxableTransactions.TransactionDate);
+                       
 
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0m;
 
@@ -1476,6 +1481,7 @@ namespace ExchangeRateManagerAPI.Services
                             TaxRecord.Calculation = $"(({taxableTransactions.ExchangeRateValue ?? 0m}) - {matchedCollections.BoughtAt}) * {sellAmount}";
                         }
 
+                         
                         result.Add(TaxRecord);
 
                         //update collection
@@ -1500,6 +1506,7 @@ namespace ExchangeRateManagerAPI.Services
                         TaxRecord.SellDate = taxableTransactions.TransactionDate;
                         TaxRecord.TaxYear = GetAustralianTaxYear(taxableTransactions.TransactionDate);
                         TaxRecord.SellPrice = taxableTransactions.ExchangeRateValue ?? 0m;
+                        
 
                         //do we apply discount
                         if (matchedCollections.CreatedOn.AddYears(1) <= DateOnly.FromDateTime(TaxRecord.SellDate))
@@ -1574,6 +1581,177 @@ namespace ExchangeRateManagerAPI.Services
             //return transactions;
         }
 
+        public async Task<string> GetCurrentHoldings(string assetName)
+        {
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var transactions = await dbContext.CryptoUserTransactions.Where(x=>x.AmountAssetType == assetName.ToLower()).OrderBy(x=>x.TransactionDate).ToListAsync();
+
+            var dataPoints = new List<GraphDataPoint>();
+            decimal currentXrpAmount = 0m;
+            decimal totalSpent = 0m;
+            decimal totalBuys = 0m;
+
+            var dailyData = transactions
+                .GroupBy(t => t.TransactionDate.Date)
+                .OrderBy(g => g.Key)
+                .ToList();
+
+            // Calculate current amount of XRP and total spent
+            foreach (var entry in dailyData)
+            {
+                decimal dailyAmount = entry.Sum(t =>
+                    t.TransactionType == Shared.Enums.TransactionEventType.buy ? t.Amount : -t.Amount);
+
+                currentXrpAmount += dailyAmount;
+
+                if (entry.Any(t => t.TransactionType == Shared.Enums.TransactionEventType.buy))
+                {
+                    totalSpent += entry.Sum(t => t.TransactionType == Shared.Enums.TransactionEventType.buy ? t.Value ?? 0 : 0);
+                    totalBuys += entry.Sum(t => t.TransactionType == Shared.Enums.TransactionEventType.buy ? t.Amount : 0);
+                }
+
+                dataPoints.Add(new GraphDataPoint
+                {
+                    Date = entry.Key,
+                    Amount = currentXrpAmount
+                });
+            }
+
+            var dollarCostAverage = totalBuys == 0 ? 0 : totalSpent / totalBuys;
+
+            // Generate the static HTML output
+            return GenerateHtmlResponse(assetName, currentXrpAmount, dollarCostAverage, dataPoints);
+
+           
+
+
+        }
+
+        public async Task<List<CryptoUserTransactionProfitLossCalculation>> CalculateProfits(string assetName)
+        {
+
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var transactions = await dbContext.CryptoUserTransactions.Where(x => x.AmountAssetType == assetName.ToLower()).OrderBy(x => x.TransactionDate).ToListAsync();
+
+            var result = new List<CryptoUserTransactionProfitLossCalculation>();
+
+            decimal totalAmountAvailable = 0m;
+            decimal totalCost = 0m;
+
+            foreach (var transaction in transactions)
+            {
+                if (transaction.TransactionType == TransactionEventType.buy && transaction.Amount > 0)
+                {
+                    totalAmountAvailable += transaction.Amount;
+                    totalCost += transaction.Amount * (transaction.Value ?? 0) / transaction.Amount;
+
+                    if(transactions.Last() == transaction)
+                    {
+                        var profitCalculation = new CryptoUserTransactionProfitLossCalculation
+                        {
+                            SoldOn = transaction.TransactionDate,
+                            TotalAmountAvailableBeforeSell = totalAmountAvailable,
+                            TotalAmountAvailableAfterSell = totalAmountAvailable,
+                            TotalAmountSold = 0,
+                            TotalProfit = 0,
+                            AverageBuyPrice = totalCost / totalAmountAvailable,
+                            AmountAssetType = transaction.AmountAssetType,
+                            Currency = transaction.ExchangeRateCurrency
+                        };
+
+                        result.Add(profitCalculation);
+                    }
+                }
+                else if (transaction.TransactionType == TransactionEventType.sell)
+                {
+                    if (totalAmountAvailable == 0) continue;
+
+                    decimal amountSold = transaction.Amount;
+                    decimal sellValue = transaction.Value ?? 0;
+
+                    decimal averageBuyPrice = totalCost / totalAmountAvailable;
+                    decimal totalProfit = sellValue - (amountSold * averageBuyPrice);
+
+                    var profitCalculation = new CryptoUserTransactionProfitLossCalculation
+                    {
+                        SoldOn = transaction.TransactionDate,
+                        TotalAmountAvailableBeforeSell = totalAmountAvailable,
+                        TotalAmountAvailableAfterSell = totalAmountAvailable - amountSold,
+                        TotalAmountSold = amountSold,
+                        TotalProfit = totalProfit,
+                        AverageBuyPrice = averageBuyPrice,
+                        AmountAssetType = transaction.AmountAssetType,
+                        Currency = transaction.ExchangeRateCurrency
+                    };
+
+                    result.Add(profitCalculation);
+
+                    totalAmountAvailable -= amountSold;
+                    totalCost -= amountSold * averageBuyPrice;
+                }
+            }
+
+            
+
+            return result;
+        }
+
+
+        public async Task<CryptoUserTransactionBreakEvenCalculationResult> CalculateBreakEvenPrice(string assetName)
+        {
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var transactions = await dbContext.CryptoUserTransactions
+                                              .Where(x => x.AmountAssetType == assetName.ToLower())
+                                              .OrderBy(x => x.TransactionDate)
+                                              .ToListAsync();
+
+            var result = new CryptoUserTransactionBreakEvenCalculationResult();
+
+            decimal totalAmountAvailable = 0m;
+            decimal totalCost = 0m;
+
+            foreach (var transaction in transactions)
+            {
+                var step = new CryptoUserTransactionBreakEvenCalculationStep
+                {
+                    TransactionDate = transaction.TransactionDate,
+                    TransactionType = transaction.TransactionType.ToString(),
+                    Amount = transaction.Amount,
+                    Value = transaction.Value ?? 0m,
+                    TotalAmountAvailable = totalAmountAvailable,
+                    TotalCost = totalCost,
+                    AverageBuyPrice = totalAmountAvailable > 0 ? totalCost / totalAmountAvailable : 0m
+                };
+
+                if (transaction.TransactionType == TransactionEventType.buy)
+                {
+                    totalAmountAvailable += transaction.Amount;
+                    totalCost += transaction.Amount * step.Value / transaction.Amount;
+                }
+                else if (transaction.TransactionType == TransactionEventType.sell)
+                {
+                    if (totalAmountAvailable == 0) continue;
+
+                    decimal amountSold = transaction.Amount;
+                    decimal averageBuyPrice = totalCost / totalAmountAvailable;
+
+                    totalAmountAvailable -= amountSold;
+                    totalCost -= amountSold * averageBuyPrice;
+                }
+
+                step.TotalAmountAvailable = totalAmountAvailable;
+                step.TotalCost = totalCost;
+                step.AverageBuyPrice = totalAmountAvailable > 0 ? totalCost / totalAmountAvailable : 0m;
+
+                result.Steps.Add(step);
+            }
+
+            result.BreakEvenPrice = totalAmountAvailable == 0 ? 0m : totalCost / totalAmountAvailable;
+
+            return result;
+        }
+
+
         private int GetAustralianTaxYear(DateTime date)
         {
             int year = date.Year;
@@ -1594,6 +1772,150 @@ namespace ExchangeRateManagerAPI.Services
             return (startDate, endDate);
         }
 
+        private string GenerateHtmlResponseOld(decimal currentXrpAmount, decimal dollarCostAverage, List<GraphDataPoint> dataPoints)
+        {
+            // Prepare data for Chart.js
+            var jsonDataPoints = JsonSerializer.Serialize(dataPoints.Select(dp => new
+            {
+                Date = dp.Date.ToString("yyyy-MM-dd"), // Ensure date is formatted correctly for JSON
+                Amount = dp.Amount
+            }));
 
+            return $@"
+    <!DOCTYPE html>
+    <html lang=""en"">
+    <head>
+        <meta charset=""UTF-8"">
+        <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+        <link rel=""stylesheet"" href=""https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"">
+        <script src=""https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js""></script>
+        <script src=""https://cdn.jsdelivr.net/npm/dayjs@1.10.4/dayjs.min.js""></script>
+        <script src=""https://cdn.jsdelivr.net/npm/chartjs-adapter-dayjs@1.1.0/dist/chartjs-adapter-dayjs.bundle.min.js""></script>
+        <title>XRP Summary</title>
+    </head>
+    <body>
+        <div class=""container"">
+            <h1 class=""mt-5"">XRP Summary</h1>
+            <canvas id=""xrpChart"" height=""400""></canvas>
+            <div class=""mt-4"">
+                <h5>Current Amount of XRP Remaining: <span id=""currentAmount"">{currentXrpAmount:F4}</span></h5>
+                <h5>Dollar Cost Average for Buys: <span id=""dollarCostAvg"">{dollarCostAverage:F4}</span></h5>
+            </div>
+        </div>
+
+        <script>
+            // Prepare data for Chart.js
+            const dataPoints = {jsonDataPoints};
+            const labels = dataPoints.map(point => point.Date);
+            const data = dataPoints.map(point => point.Amount);
+
+            const ctx = document.getElementById('xrpChart').getContext('2d');
+            const xrpChart = new Chart(ctx, {{
+                type: 'line',
+                data: {{
+                    labels: labels,
+                    datasets: [{{
+                        label: 'Available XRP Over Time',
+                        data: data,
+                        fill: false,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }}]
+                }},
+                options: {{
+                    scales: {{
+                        x: {{
+                            type: 'time',
+                            time: {{
+                                unit: 'day'
+                            }}
+                        }},
+                        y: {{
+                            beginAtZero: true
+                        }}
+                    }}
+                }}
+            }});
+        </script>
+    </body>
+    </html>";
+        }
+
+        private string GenerateHtmlResponse(string assetName, decimal amount, decimal fiatCostAverage, List<GraphDataPoint> dataPoints)
+        {
+            // Prepare data for Chart.js
+            var jsonDataPoints = JsonSerializer.Serialize(dataPoints.Select(dp => new
+            {
+                Date = dp.Date.ToString("yyyy-MM-dd"), // Ensure date is formatted correctly for JSON
+                Amount = dp.Amount
+            }));
+
+            return $@"
+    <!DOCTYPE html>
+    <html lang=""en"">
+    <head>
+        <meta charset=""UTF-8"">
+        <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+        <link rel=""stylesheet"" href=""https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"">
+        <script src=""https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js""></script>
+        <script src=""https://cdn.jsdelivr.net/npm/dayjs@1.10.4/dayjs.min.js""></script>
+        <script src=""https://cdn.jsdelivr.net/npm/chartjs-adapter-dayjs@1.1.0/dist/chartjs-adapter-dayjs.bundle.min.js""></script>
+        <title>XRP Summary</title>
+    </head>
+    <body>
+        <div class=""container"">
+            <h1 class=""mt-5"">{assetName.ToUpper()} Summary</h1>
+            <canvas id=""xrpChart"" height=""400""></canvas>
+            <div class=""mt-4"">
+                <h5>Current Amount of {assetName.ToUpper()} Remaining: <span id=""currentAmount"">{amount:F4}</span></h5>
+                <h5>Fiat Cost Average for Buys: <span id=""dollarCostAvg"">{fiatCostAverage:F4}</span></h5>
+            </div>
+          
+        </div>
+
+        <script>
+            // Prepare data for Chart.js
+            const dataPoints = {jsonDataPoints};
+            const labels = dataPoints.map(point => point.Date);
+            const amounts = dataPoints.map(point => point.Amount);
+
+            // Setup the initial data structure for Chart.js
+            const data = {{
+                labels: labels,
+                datasets: [{{
+                    label: 'Available {assetName.ToUpper()} Over Time',
+                    data: amounts,
+                    fill: false,  // Set to false to not fill the area under the line
+                    borderColor: 'rgb(75, 192, 192)',
+                    pointStyle: 'circle', // Default point style
+                    pointRadius: 5,
+                    pointHoverRadius: 10
+                }}]
+            }};
+
+            const config = {{
+                type: 'line',
+                data: data,
+                options: {{
+                    responsive: true,
+                    plugins: {{
+                        title: {{
+                            display: true,
+                            text: '{assetName.ToUpper()} Over Time'
+                        }}
+                    }}
+                }}
+            }};
+
+            const ctx = document.getElementById('xrpChart').getContext('2d');
+            const xrpChart = new Chart(ctx, config);
+
+             
+        </script>
+    </body>
+    </html>";
+        }
     }
 }
+
+

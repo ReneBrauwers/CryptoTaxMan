@@ -165,118 +165,121 @@ namespace ExchangeRateManagerAPI.Services
                 case System.Net.HttpStatusCode.OK:
                     {
 
-                        var toCoinJsonInfo = JsonDocument.Parse(await coinInfo.Content.ReadAsStringAsync()).RootElement;
-
-                        //Get market data
-                        var priceData = toCoinJsonInfo.GetProperty("prices");
-
-                        var lastDate = DateTime.MinValue;
-                        var exChangeRatesTemp = new List<ExchangeRate>();
-                        foreach (JsonElement price in priceData.EnumerateArray())
+                        try
                         {
-                            var epoch = price[0].GetInt64();
-                            var value = price[1].GetDecimal();
+                            var toCoinJsonInfo = JsonDocument.Parse(await coinInfo.Content.ReadAsStringAsync()).RootElement;
 
-                            //convert epoch to datetime
+                            //Get market data
+                            var priceData = toCoinJsonInfo.GetProperty("prices");
 
-                            DateTime date = new DateTime(1970, 1, 1, 0, 0, 0, 0); //from start epoch time
-                            date = date.AddMilliseconds(epoch); //add the seconds to the start DateTime
-
-                            //Data granularity is automatic (cannot be adjusted)
-                            //1 day from query time = 5 minute interval data
-                            //1 - 90 days from query time = hourly data
-                            //above 90 days from query time = daily data(00:00 UTC)
-                            exChangeRatesTemp.Add(new ExchangeRate()
+                            var lastDate = DateTime.MinValue;
+                            var exChangeRatesTemp = new List<ExchangeRate>();
+                            foreach (JsonElement price in priceData.EnumerateArray())
                             {
-                                Date = date.Date,
-                                Open = 0,
-                                Close = value,
-                                ExchangeCurrency = exchangeInfo.ExchangeCurrency,
-                                Symbol = exchangeInfo.Symbol,
-                                DataSource = "Coingecko",
+                                var epoch = price[0].GetInt64();
+                                var value = price[1].GetDecimal();
+
+                                //convert epoch to datetime
+
+                                DateTime date = new DateTime(1970, 1, 1, 0, 0, 0, 0); //from start epoch time
+                                date = date.AddMilliseconds(epoch); //add the seconds to the start DateTime
+
+                                //Data granularity is automatic (cannot be adjusted)
+                                //1 day from query time = 5 minute interval data
+                                //1 - 90 days from query time = hourly data
+                                //above 90 days from query time = daily data(00:00 UTC)
+                                exChangeRatesTemp.Add(new ExchangeRate()
+                                {
+                                    Date = date.Date,
+                                    Open = 0,
+                                    Close = value,
+                                    ExchangeCurrency = exchangeInfo.ExchangeCurrency,
+                                    Symbol = exchangeInfo.Symbol,
+                                    DataSource = "Coingecko",
+                                });
+
+
+                            }
+
+                            var groupedResult = from e in exChangeRatesTemp
+                                                group e by e.Date;
+
+                            //cleanup exchangeRates / group by date and average
+                            exChangeRates = exChangeRatesTemp.GroupBy(x => x.Date).Select(x =>
+                            {
+                                //Logic used to derive the average
+                                var openValue = exChangeRatesTemp.Where(y => y.Date == x.Key).First().Close;
+                                var closeValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Last().Close;
+                                var lowValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Min(r => r.Close);
+                                var highValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Max(r => r.Close);
+                                var averageValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Average(r => r.Close);
+
+
+
+                                return new ExchangeRate()
+                                {
+                                    Date = x.Key,
+                                    Open = openValue,
+                                    Close = closeValue,
+                                    High = highValue,
+                                    Low = lowValue,
+                                    ExchangeCurrency = exchangeInfo.ExchangeCurrency,
+                                    Symbol = exchangeInfo.Symbol,
+                                    DataSource = "Coingecko"
+
+                                };
+
+                            }).ToList();
+
+                            //Update close with previous value
+                            exChangeRates.ForEach(x =>
+                            {
+
+                                var yesterday = x.Date.AddDays(-1);
+                                //get yesterdays value which is todays open
+                                try
+                                {
+                                    var open = exChangeRates.Where(x => x.Date == yesterday).Select(x => x.Close).FirstOrDefault();
+                                    x.Open = open > 0 ? open : x.Close;
+                                    x.OpenCloseAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Open), Convert.ToDecimal(x.Close)), 2);
+                                    x.LowHighAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Low), Convert.ToDecimal(x.High)), 2);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex.Message);
+                                    throw new NotSupportedException($"Failed to retrieve yesterdays value which is todays open: {ex.Message}");
+                                }
+
                             });
 
 
+
+                            return exChangeRates;
                         }
-
-                        var groupedResult = from e in exChangeRatesTemp
-                                            group e by e.Date;
-
-                        //cleanup exchangeRates / group by date and average
-                        exChangeRates = exChangeRatesTemp.GroupBy(x => x.Date).Select(x =>
+                        
+                        catch (Exception ex)
                         {
-                            //Logic used to derive the average
-                            var openValue = exChangeRatesTemp.Where(y => y.Date == x.Key).First().Close;
-                            var closeValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Last().Close;
-                            var lowValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Min(r => r.Close);
-                            var highValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Max(r => r.Close);
-                            var averageValue = exChangeRatesTemp.Where(y => y.Date == x.Key).Average(r => r.Close);
-
-                            //return new ExchangeRate()
-                            //{
-                            //    Date = x.Key,
-                            //    Open = 0,
-                            //    Close = exChangeRatesTemp.Where(y => y.Date == x.Key).Average(r => r.Close),
-                            //    ExchangeCurrency = exchangeInfo.ExchangeCurrency,
-                            //    Symbol = exchangeInfo.Symbol,
-                            //    DataSource = new Uri($"{_client.BaseAddress}{uriPath}")
-
-                            //};
-
-                            return new ExchangeRate()
-                            {
-                                Date = x.Key,
-                                Open = openValue,
-                                Close = closeValue,
-                                High = highValue,
-                                Low = lowValue,
-                                ExchangeCurrency = exchangeInfo.ExchangeCurrency,
-                                Symbol = exchangeInfo.Symbol,
-                                DataSource = "Coingecko"
-
-                            };
-
-                        }).ToList();
-
-                        //Update close with previous value
-                        exChangeRates.ForEach(x =>
-                        {
-
-                            var yesterday = x.Date.AddDays(-1);
-                            //get yesterdays value which is todays open
-                            try
-                            {
-                                var open = exChangeRates.Where(x => x.Date == yesterday).Select(x => x.Close).FirstOrDefault();
-                                x.Open = open > 0 ? open : x.Close;
-                                x.OpenCloseAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Open), Convert.ToDecimal(x.Close)), 2);
-                                x.LowHighAverage = decimal.Divide(decimal.Add(Convert.ToDecimal(x.Low), Convert.ToDecimal(x.High)), 2);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogInformation(ex.Message);
-                            }
-
-                        });
-
-
-
-                        return exChangeRates;
+                            _logger.LogError(ex.Message);
+                            throw new NotSupportedException($"Failed to parse coingecko response: {ex.Message}");
+                        }
 
                     }
                 case System.Net.HttpStatusCode.NotFound:
                     {
-                        return new List<ExchangeRate>();
+                        //return new List<ExchangeRate>();
+                        throw new NotSupportedException($"API returned {coinInfo?.StatusCode} {coinInfo?.ReasonPhrase} for exchange {exchangeInfo?.ExchangeName} when asking for data on {exchangeInfo?.Symbol}");
                         //throw new HttpRequestException($"API returned {coinInfo.StatusCode} {coinInfo.ReasonPhrase} for exchange {exchangeInfo.ExchangeName} when asking for data on {exchangeInfo.Symbol}"); //null;
                     }
 
                 case System.Net.HttpStatusCode.TooManyRequests:
                     {
 
-                        throw new HttpRequestException($"API returned {coinInfo.StatusCode} {coinInfo.ReasonPhrase}"); //null;
+                        throw new NotSupportedException($"API returned {coinInfo?.StatusCode} {coinInfo?.ReasonPhrase}"); //null;
                     }
                 default:
                     {
-                        return new List<ExchangeRate>();
+                        throw new NotSupportedException($"API returned {coinInfo?.StatusCode} {coinInfo?.ReasonPhrase} for exchange {exchangeInfo?.ExchangeName} when asking for data on {exchangeInfo?.Symbol}");
+                        //return new List<ExchangeRate>();
                         //Console.WriteLine(coinInfo.StatusCode);
                         //throw new HttpRequestException($"API returned {coinInfo.StatusCode} {coinInfo.ReasonPhrase}"); //null;
                     }

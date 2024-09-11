@@ -1,6 +1,13 @@
 [
   {
     "Kind": "crypto",
+    "Symbol": "csc",
+    "ExchangeName": "YahooFinance",
+    "ExchangeSymbol": "csc",
+    "ExchangeCurrency": "usd"
+  },
+  {
+    "Kind": "crypto",
     "Symbol": "bnb",
     "ExchangeName": "YahooFinance",
     "ExchangeSymbol": "bnb",

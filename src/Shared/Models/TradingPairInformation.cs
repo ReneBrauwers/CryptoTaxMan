@@ -25,7 +25,10 @@ namespace Shared.Models
        
 
         public DateTime? LastExchangeRateEntryDate { get; set; }
+        public DateTime? SyncedOn { get; set; }
+        public string? LastSyncStatus { get; set; }
         public bool IsActive { get; set; } = true;
+        public bool SyncError { get; set; } = false;
 
     }
 }

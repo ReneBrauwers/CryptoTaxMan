@@ -14,7 +14,8 @@ namespace Shared.Models
         public string? ExchangeName { get; set; }
         public string? ExchangeSymbol { get; set; }
         public string? ExchangeCurrency { get; set; }
-        public DateTime? ExchangeRatesMissingFrom { get; set; }
+        public DateTime? LastExchangeRateEntryDate { get; set; }
+        public bool IsActive { get; set; } = false;
 
     }
 

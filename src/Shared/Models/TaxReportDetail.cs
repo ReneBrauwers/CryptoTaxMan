@@ -30,10 +30,8 @@ namespace Shared.Models
         [FieldOrder(8)]
         public string Currency { get; set; }
         [FieldOrder(9)]
-        public decimal CapitalGainAmount { get; set; }
+        public decimal CapitalGainAmount { get; set; }    
         [FieldOrder(10)]
-        public decimal ReportableAsIncome { get; set; }
-        [FieldOrder(11)]
         public string Calculation { get; set; }
     }
 }

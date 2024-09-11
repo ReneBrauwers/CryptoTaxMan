@@ -87,7 +87,7 @@ namespace ExchangeRateManagerAPI
             //configure tradingpair
             modelBuilder.Entity<TradingPairInformation>()
                .ToTable("TradingPairInformation")
-                .HasKey(pd => new { pd.Symbol, pd.ExchangeCurrency });
+                .HasKey(pd => new { pd.Symbol, pd.ExchangeCurrency, pd.ExchangeName });
 
             modelBuilder.Entity<TradingPairInformation>()
             .HasIndex(c => c.Symbol).IsUnique(true).HasDatabaseName("Idx_Symbol");
