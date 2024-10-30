@@ -45,44 +45,50 @@ namespace ExchangeRateManagerAPI
                 .ToTable("CryptoUserTransactions"); // Explicitly map to the production table
 
             // Primary Key and Auto-Increment configuration
-            cryptoUserTransactionEntity.HasKey(c => new { c.Sequence, c.TransactionType });
+            cryptoUserTransactionEntity.HasKey(c => new {c.TransactionId, c.Sequence, c.TransactionType });
             cryptoUserTransactionEntity.Property(c => c.Sequence).ValueGeneratedOnAdd();
 
+            // Index for TransactionId
+            cryptoUserTransactionEntity.HasIndex(c => c.TransactionId).IsUnique(false).HasDatabaseName("Idx_TransactionId");
+
             // Index for sequence
-            cryptoUserTransactionEntity.HasIndex(c => c.Sequence).IsUnique(false).HasDatabaseName("Idx_Sequence");
+            cryptoUserTransactionEntity.HasIndex(c => new { c.TransactionId, c.Sequence }).IsUnique(false).HasDatabaseName("Idx_Sequence");
 
             // Index for TransactionTypes
-            cryptoUserTransactionEntity.HasIndex(c => c.TransactionType).IsUnique(false).HasDatabaseName("Idx_TransactionType");
+            cryptoUserTransactionEntity.HasIndex(c => new { c.TransactionId, c.TransactionType }).IsUnique(false).HasDatabaseName("Idx_TransactionType");
 
             // Index for CurrencyIn
-            cryptoUserTransactionEntity.HasIndex(c => c.Amount).IsUnique(false).HasDatabaseName("Idx_Amount");
+            cryptoUserTransactionEntity.HasIndex(c => new { c.TransactionId, c.Amount }).IsUnique(false).HasDatabaseName("Idx_Amount");
 
             // Index for CurrencyOut
-            cryptoUserTransactionEntity.HasIndex(c => c.AmountAssetType).IsUnique(false).HasDatabaseName("Idx_AmountAssetType");
+            cryptoUserTransactionEntity.HasIndex(c => new { c.TransactionId, c.AmountAssetType }).IsUnique(false).HasDatabaseName("Idx_AmountAssetType");
 
             // Index for TransactionDate
-            cryptoUserTransactionEntity.HasIndex(c => c.TransactionDate).IsUnique(false).HasDatabaseName("Idx_TransactionDate");
+            cryptoUserTransactionEntity.HasIndex(c => new { c.TransactionId, c.TransactionDate }).IsUnique(false).HasDatabaseName("Idx_TransactionDate");
 
             // Composite index for TransactionDate and CurrencyIn
-            cryptoUserTransactionEntity.HasIndex(c => new { c.TransactionDate, c.AmountAssetType }).IsUnique(false).HasDatabaseName("Idx_TransactionDateAndAmountAssetType");
+            cryptoUserTransactionEntity.HasIndex(c => new { c.TransactionId, c.TransactionDate, c.AmountAssetType }).IsUnique(false).HasDatabaseName("Idx_TransactionDateAndAmountAssetType");
 
             // Configure CryptoUserTransactionStaging entity for staging
             var cryptoUserTransactionStagingEntity = modelBuilder.Entity<CryptoUserTransactionStaging>()
                 .ToTable("CryptoUserTransactionsStaging"); // Explicitly map to the staging table
 
             // Primary Key and Auto-Increment configuration
-            cryptoUserTransactionStagingEntity.HasKey(c => c.Sequence);
+            cryptoUserTransactionStagingEntity.HasKey(c => new { c.TransactionId, c.Sequence });
             cryptoUserTransactionStagingEntity.Property(c => c.Sequence).ValueGeneratedOnAdd();
 
+            // Index for TransactionId
+            cryptoUserTransactionStagingEntity.HasIndex(c => c.TransactionId).IsUnique(false).HasDatabaseName("Idx_TransactionId_Staging");
+
 
             // Index for TransactionDate
-            cryptoUserTransactionStagingEntity.HasIndex(c => c.TransactionDate).IsUnique(false).HasDatabaseName("Idx_TransactionDate_Staging");
+            cryptoUserTransactionStagingEntity.HasIndex(c => new { c.TransactionId, c.TransactionDate }).IsUnique(false).HasDatabaseName("Idx_TransactionDate_Staging");
 
             // Index for TransactionDate
-            cryptoUserTransactionStagingEntity.HasIndex(c => c.IsProcessed).IsUnique(false).HasDatabaseName("Idx_IsProcessed_Staging");
+            cryptoUserTransactionStagingEntity.HasIndex(c =>  new {c.TransactionId, c.IsProcessed }).IsUnique(false).HasDatabaseName("Idx_IsProcessed_Staging");
 
             // Composite index for TransactionDate and CurrencyIn
-            cryptoUserTransactionStagingEntity.HasIndex(c => new { c.TransactionDate, c.CurrencyIn }).IsUnique(false).HasDatabaseName("Idx_TransactionDateAndCurrencyIn_Staging");
+            cryptoUserTransactionStagingEntity.HasIndex(c => new { c.TransactionId, c.TransactionDate, c.CurrencyIn }).IsUnique(false).HasDatabaseName("Idx_TransactionDateAndCurrencyIn_Staging");
 
             //configure tradingpair
             modelBuilder.Entity<TradingPairInformation>()

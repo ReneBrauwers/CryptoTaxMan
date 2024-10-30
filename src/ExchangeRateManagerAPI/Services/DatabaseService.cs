@@ -1,5 +1,6 @@
 ﻿using ExchangeRateManagerAPI.Controllers;
 using ExchangeRateManagerAPI.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
@@ -60,11 +61,15 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
-        public async Task<(int records, string message, bool error)> InsertCryptoUserTransactionsStaging(List<CryptoUserTransactionStaging> transactions)
+        public async Task<(int records, string message, bool error)> InsertCryptoUserTransactionsStaging(string transactionId,List<CryptoUserTransactionStaging> transactions)
         {
             try
             {
                 using var dbContext = _dbContextFactory.CreateDbContext();
+
+                //set the transactionId for all transactions
+                transactions.ForEach(x => x.TransactionId = transactionId);
+
                 await dbContext.CryptoUserTransactionsStaging.AddRangeAsync(transactions);
                 return (await dbContext.SaveChangesAsync(), "Inserted", false);
             }
@@ -77,26 +82,7 @@ namespace ExchangeRateManagerAPI.Services
 
         }
 
-        public async Task<(int records, string message, bool error)> UpsertCryptoUserTranssactionsStaging(List<CryptoUserTransactionStaging> transactions)
-        {
-            try
-            {
-                using var dbContext = _dbContextFactory.CreateDbContext();
-                var existingRecords = await dbContext.CryptoUserTransactionsStaging.ToListAsync();
-                var newRecords = transactions.Where(x => !existingRecords.Select(y => y.Sequence).Contains(x.Sequence)).ToList();
-                var updatedRecords = transactions.Where(x => existingRecords.Select(y => y.Sequence).Contains(x.Sequence)).ToList();
-
-                dbContext.CryptoUserTransactionsStaging.UpdateRange(updatedRecords);
-                await dbContext.CryptoUserTransactionsStaging.AddRangeAsync(newRecords);
-                return (await dbContext.SaveChangesAsync(), "Upserted", false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"UpsertCryptoUserTranssactionsStaging caused error {ex.Message}");
-                return (0, $"UpsertCryptoUserTranssactionsStaging caused error {ex.Message}", true);
-            }
-        }
-
+      
 
 
         public string StartProcessCryptoUserTransactionsStagingTask(Func<Task<(int records, string? message, bool error, object? details)>> taskFunc)
@@ -128,7 +114,7 @@ namespace ExchangeRateManagerAPI.Services
 
 
 
-        public async Task<(int records, string? message, bool error, object? details)> ProcessCryptoUserTransactionsStaging(string baseExchangeCurrency = "aud")
+        public async Task<(int records, string? message, bool error, object? details)> ProcessCryptoUserTransactionsStaging(string transactionId, string baseExchangeCurrency = "aud")
         {
             int recordsAffected = 0;
             InvalidCryptoUserTransaction? invalidTransactions = null;
@@ -141,7 +127,7 @@ namespace ExchangeRateManagerAPI.Services
                 using (var dbContext = _dbContextFactory.CreateDbContext())
                 {
 
-                    var stagingRecords = await dbContext.CryptoUserTransactionsStaging.Where(x => x.IsProcessed == false).OrderBy(o => o.TransactionDate).ToListAsync();
+                    var stagingRecords = await dbContext.CryptoUserTransactionsStaging.Where(x => x.TransactionId == transactionId && x.IsProcessed == false).OrderBy(o => o.TransactionDate).ToListAsync();
 
                     //return if stagingRecords is null or empty
                     if (stagingRecords is null || stagingRecords.Count == 0)
@@ -399,7 +385,7 @@ namespace ExchangeRateManagerAPI.Services
                 //now update the existing records with the new values
                 foreach (var record in transactions)
                 {
-                    var existingRecord = existingRecords.FirstOrDefault(x => x.Sequence == record.Sequence && x.TransactionDate == record.TransactionDate && x.TransactionType == record.TransactionType);
+                    var existingRecord = existingRecords.FirstOrDefault(x => x.TransactionId == record.TransactionId && x.Sequence == record.Sequence && x.TransactionDate == record.TransactionDate && x.TransactionType == record.TransactionType);
                     if (existingRecord is not null)
                     {
                         existingRecord.Amount = record.Amount;
@@ -500,6 +486,7 @@ namespace ExchangeRateManagerAPI.Services
                     {
                         flattenRecords.Add(new CryptoUserTransaction
                         {
+                            TransactionId = record.TransactionId,
                             TaxableEvent = false,
                             Amount = record.AmountIn ?? 0m,
                             AmountAssetType = record.CurrencyIn?.ToLower(),
@@ -519,6 +506,7 @@ namespace ExchangeRateManagerAPI.Services
 
                         flattenRecords.Add(new CryptoUserTransaction
                         {
+                            TransactionId = record.TransactionId,
                             TaxableEvent = true,
                             Amount = record.AmountIn ?? 0m,
                             AmountAssetType = record.CurrencyIn?.ToLower(),
@@ -533,6 +521,7 @@ namespace ExchangeRateManagerAPI.Services
 
                         flattenRecords.Add(new CryptoUserTransaction
                         {
+                            TransactionId = record.TransactionId,
                             TaxableEvent = false,
                             Amount = record.AmountOut ?? 0m,
                             AmountAssetType = record.CurrencyOut?.ToLower(),
@@ -559,7 +548,7 @@ namespace ExchangeRateManagerAPI.Services
                         //exchange rate and exchange currency in a STAKE SELL reflects the exchange rate staked against 
                         var sellRecord = new CryptoUserTransaction();
 
-
+                        sellRecord.TransactionId = record.TransactionId;
                         sellRecord.TaxableEvent = true;
                         sellRecord.Amount = record.AmountIn ?? 0m;
                         sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
@@ -586,7 +575,7 @@ namespace ExchangeRateManagerAPI.Services
                         {
                             var sellRecord = new CryptoUserTransaction();
 
-
+                            sellRecord.TransactionId = record.TransactionId;
                             sellRecord.TaxableEvent = true;
                             sellRecord.Amount = (record.AmountIn ?? 0m) - (record.AmountOut ?? 0m);
                             sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
@@ -617,7 +606,7 @@ namespace ExchangeRateManagerAPI.Services
                         //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
                         var sellRecord = new CryptoUserTransaction();
 
-
+                        sellRecord.TransactionId = record.TransactionId;
                         sellRecord.TaxableEvent = true;
                         sellRecord.Amount = record.AmountIn ?? 0m;
                         sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
@@ -631,6 +620,7 @@ namespace ExchangeRateManagerAPI.Services
                         flattenRecords.Add(sellRecord);
 
                         var buyRecord = new CryptoUserTransaction();
+                        buyRecord.TransactionId = record.TransactionId;
                         buyRecord.TaxableEvent = false;
                         buyRecord.Amount = record.AmountOut ?? 0m;
                         buyRecord.AmountAssetType = record.CurrencyOut?.ToLower();
@@ -656,7 +646,7 @@ namespace ExchangeRateManagerAPI.Services
                         //exchange rate and exchange currency in a SELL reflects the exchange rate sold in in to (Ie; the new buy exchange rate to use)
                         var sellRecord = new CryptoUserTransaction();
 
-
+                        sellRecord.TransactionId = record.TransactionId;
                         sellRecord.TaxableEvent = true;
                         sellRecord.Amount = record.AmountIn ?? 0m;
                         sellRecord.AmountAssetType = record.CurrencyIn?.ToLower();
@@ -672,6 +662,7 @@ namespace ExchangeRateManagerAPI.Services
                         flattenRecords.Add(sellRecord);
 
                         var buyRecord = new CryptoUserTransaction();
+                        buyRecord.TransactionId = record.TransactionId;
                         buyRecord.TaxableEvent = false;
                         buyRecord.Amount = record.AmountOut ?? 0m;
                         buyRecord.AmountAssetType = record.CurrencyOut?.ToLower();
@@ -692,6 +683,7 @@ namespace ExchangeRateManagerAPI.Services
 
                         flattenRecords.Add(new CryptoUserTransaction
                         {
+                            TransactionId = record.TransactionId,
                             TaxableEvent = false,
                             Amount = record.AmountOut ?? 0m,
                             AmountAssetType = record.CurrencyOut?.ToLower(),
@@ -776,6 +768,7 @@ namespace ExchangeRateManagerAPI.Services
 
                                 transactionLog.Add(new TransactionReferenceTrail
                                 {
+                                    TransactionId = t.TransactionId, 
                                     Sequence = t.Sequence,
                                     TransactionDate = t.TransactionDate,
                                     TransactionType = t.TransactionType,
@@ -846,6 +839,7 @@ namespace ExchangeRateManagerAPI.Services
 
                         var sellRecord = records.First(x => x.TransactionType == Shared.Enums.TransactionEventType.sell);
                         updatedRecord = new CryptoUserTransaction();
+                        updatedRecord.TransactionId = sellRecord.TransactionId;
                         updatedRecord.Sequence = sellRecord.Sequence;
                         updatedRecord.Value = sellRecord.Value;
                         updatedRecord.TransactionDate = sellRecord.TransactionDate.ToUniversalTime();
@@ -865,61 +859,7 @@ namespace ExchangeRateManagerAPI.Services
                                                                 // string transactionType = sellRecord.TransactionType ?? string.Empty;
                         decimal exchangeRate = 0m;
 
-                        //skip looking up exchange rate, if below conditions matches
-
-                        // const int MAX_ITERATIONS = 5; // Set an arbitrary number as the maximum iteration limit
-                        // int iterationCount = 0;
-
-                        //while (targetCurrency != string.Empty && targetCurrency.ToLower() != "aud") //we need to perform an extra lookups
-                        //{
-                        //    //  iterationCount++;
-                        //    //  Console.WriteLine($"sell Iteration {iterationCount}");
-                        //    var exchangeRateInformation = sellRecord.ExchangeRateValue is null || sellRecord.ExchangeRateValue == 0 ? exchangeRates.FirstOrDefault(x => x.Symbol.ToLower() == targetCurrency.ToLower() && x.Date == exchangeRateDay) : null;
-
-                        //    if (exchangeRateInformation is not null && !string.IsNullOrWhiteSpace(exchangeRateInformation.ExchangeCurrency))
-                        //    {
-                        //        targetCurrency = exchangeRateInformation.ExchangeCurrency;
-
-                        //        if (exchangeRate == 0m)
-                        //        {
-                        //            exchangeRate = exchangeRateInformation.Low;
-                        //        }
-                        //        else
-                        //        {
-                        //            var previousExchangeRate = exchangeRate;
-                        //            exchangeRate = previousExchangeRate * exchangeRateInformation.Low;
-                        //        }
-
-                        //        //high - low difference tolerance check
-                        //    }
-                        //    else
-                        //    {
-                        //        if (sellRecord.ExchangeRateValue == 0)
-                        //        {
-                        //            if (exchangeRateDay >= exchangeRateMaxOffset)
-                        //            {
-                        //                //attempt to lookup exchange-rate for previous day
-                        //                exchangeRateDay = exchangeRateDay.AddDays(-1);
-                        //                updatedRecord.InternalNotes = $"No Exchange rate found for transaction date; using rate from {exchangeRateDay.ToString("D")} instead";
-
-                        //            }
-                        //            else
-                        //            {
-                        //                updatedRecord.InternalNotes = "Exchange rate could not be looked up; requires user intervention";
-                        //                break; //exit while;
-                        //            }
-
-
-                        //        }
-                        //        else
-                        //        {
-                        //            updatedRecord.UsesManualAssignedExchangeRate = true;
-                        //            exchangeRate = sellRecord.ExchangeRateValue ?? 0m;
-                        //        }
-
-                        //    }
-                        //}
-
+                       
                         //update exchange rates
 
                         updatedRecord.ExchangeRateValue = exchangeRate;
@@ -1337,38 +1277,11 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
-        public async Task<List<TaxReportSummary>> GetTaxReportSummaryOld(int taxYear = 0)//, decimal capitalGainTaxPercentage = 30m)
+      
+
+        public async Task<List<TaxReportSummary>> GetTaxReportSummary(string transactionId, int taxYear = 0)//, decimal capitalGainTaxPercentage = 30m)
         {
-            List<TaxReportDetail> taxReports = await GetTaxReportDetails();
-
-            var summary = taxReports
-                .GroupBy(r => r.TaxYear)
-                .Select(g => new TaxReportSummary
-                {
-                    TaxYear = g.Key,
-                    TaxCurrency = taxReports.First().Currency,
-                    TotalSaleProceeds = g.Sum(r => r.SellPrice * r.SellAmount),
-                    TotalReportableAsIncome = 0m,
-                    TotalCapitalGains = g.Sum(r => r.CapitalGainAmount)
-                })
-                .ToList();
-
-            if (taxYear < 0)
-            {
-                return summary.OrderBy(x => x.TaxYear).ToList();
-            }
-            else
-            {
-
-                return summary.Where(x => x.TaxYear == (taxYear == 0 ? GetAustralianTaxYear(DateTime.Now) : taxYear)).OrderBy(x => x.TaxYear).ToList();
-            }
-
-
-        }
-
-        public async Task<List<TaxReportSummary>> GetTaxReportSummary(int taxYear = 0)//, decimal capitalGainTaxPercentage = 30m)
-        {
-            List<TaxReportDetail> taxReports = await GetTaxReportDetails(taxYear);//, capitalGainTaxPercentage);
+            List<TaxReportDetail> taxReports = await GetTaxReportDetails(transactionId, taxYear);//, capitalGainTaxPercentage);
 
             var tasks = taxReports
                 .GroupBy(r => r.TaxYear)
@@ -1377,13 +1290,13 @@ namespace ExchangeRateManagerAPI.Services
                     TaxYear = g.Key,
                     TaxCurrency = taxReports.First().Currency,
                     TotalSaleProceeds = g.Sum(r => r.SellPrice * r.SellAmount),
-                    TotalReportableAsIncome = await GetReportableIncome(g.Key),
+                    TotalReportableAsIncome = await GetReportableIncome(transactionId, g.Key),
                     TotalCapitalGains = g.Sum(r => r.CapitalGainAmount)
                 });
 
             var summary = await Task.WhenAll(tasks);
 
-            if (taxYear < 0)
+            if (taxYear == 0)
             {
                 return summary.OrderBy(x => x.TaxYear).ToList();
             }
@@ -1394,10 +1307,11 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
-        public async Task<List<TaxReportDetail>> GetTaxReportDetails(int taxYear = 0) //, decimal capitalGainTaxPercentage = 30m)
+        
+        public async Task<List<TaxReportDetail>> GetTaxReportDetails(string transactionId, int taxYear = 0) //, decimal capitalGainTaxPercentage = 30m)
         {
             using var dbContext = _dbContextFactory.CreateDbContext();
-            var transactions = await dbContext.CryptoUserTransactions.ToListAsync();
+            var transactions = await dbContext.CryptoUserTransactions.Where(x=>x.TransactionId == transactionId).ToListAsync();
 
             //get transactions which have a 0 value for all exchange rates
             var invalidTransactions = transactions.Where(x => x.ExchangeRateValue == 0).ToList();
@@ -1560,10 +1474,10 @@ namespace ExchangeRateManagerAPI.Services
 
         }
 
-        public async Task<List<IncomeTaxReportDetails>> GetIncomeTaxReportDetails(int taxYear = 0)
+        public async Task<List<IncomeTaxReportDetails>> GetIncomeTaxReportDetails(string transactionId, int taxYear = 0)
         {
             using var dbContext = _dbContextFactory.CreateDbContext();
-            var IncomeTransactions = await dbContext.CryptoUserTransactions.Where(x=>x.ReportableAsIncome == true).ToListAsync();
+            var IncomeTransactions = await dbContext.CryptoUserTransactions.Where(x=> x.TransactionId == transactionId && x.ReportableAsIncome == true).ToListAsync();
 
            List<IncomeTaxReportDetails> incomeTaxReportDetails = new List<IncomeTaxReportDetails>();
 
@@ -1593,13 +1507,13 @@ namespace ExchangeRateManagerAPI.Services
             
         }
 
-        public async Task<List<IncomeTaxReportSummary>> GetIncomeTaxReportSummary(int taxYear = 0)
+        public async Task<List<IncomeTaxReportSummary>> GetIncomeTaxReportSummary(string transactionId, int taxYear = 0)
         {
 
             using var dbContext = _dbContextFactory.CreateDbContext();
-            var IncomeTransactions = await dbContext.CryptoUserTransactions.Where(x => x.ReportableAsIncome == true).ToListAsync();
+            var IncomeTransactions = await dbContext.CryptoUserTransactions.Where(x => x.TransactionId == transactionId &&  x.ReportableAsIncome == true).ToListAsync();
 
-            List<IncomeTaxReportDetails> incomeTaxReportDetails = await GetIncomeTaxReportDetails(taxYear);
+            List<IncomeTaxReportDetails> incomeTaxReportDetails = await GetIncomeTaxReportDetails(transactionId, taxYear);
 
             //map to IncomeTaxReportDetails
             var summary = incomeTaxReportDetails
@@ -1622,7 +1536,7 @@ namespace ExchangeRateManagerAPI.Services
             }
         }
 
-        public async Task<decimal> GetReportableIncome(int taxYear)
+        public async Task<decimal> GetReportableIncome(string transactionId,int taxYear)
         {
             var taxYearDates = GetTaxYearDates(taxYear);
             var fromDate = taxYearDates.start.ToDateTime(new TimeOnly(0, 0));
@@ -1630,31 +1544,31 @@ namespace ExchangeRateManagerAPI.Services
 
             //now sum ReportableIncome from CryptoUserTransactions given the date time range
             using var dbContext = _dbContextFactory.CreateDbContext();
-            var transactions = await dbContext.CryptoUserTransactions.Where(x => x.TransactionDate >= fromDate && x.TransactionDate <= endDate && x.ReportableAsIncome).ToListAsync();
+            var transactions = await dbContext.CryptoUserTransactions.Where(x => x.TransactionId == transactionId && x.TransactionDate >= fromDate && x.TransactionDate <= endDate && x.ReportableAsIncome).ToListAsync();
             var total = transactions.Sum(x => x.Value);
             return total ?? 0m;
         }
 
-        public async Task<List<CryptoUserTransaction>> GetCryptoUserTransactions(DateTime startDate, DateTime endDate, string? asset)
+        public async Task<List<CryptoUserTransaction>> GetCryptoUserTransactions(DateTime startDate, DateTime endDate,string transactionId, string? asset)
         {
             using var dbContext = _dbContextFactory.CreateDbContext();
             //if asset is provided, filter by asset
             if (!string.IsNullOrWhiteSpace(asset))
             {
-                return await dbContext.CryptoUserTransactions.Where(x => x.TransactionDate >= startDate && x.TransactionDate <= endDate && x.AmountAssetType.ToLower() == asset.ToLower()).ToListAsync();
+                return await dbContext.CryptoUserTransactions.Where(x => x.TransactionId == transactionId && x.TransactionDate >= startDate && x.TransactionDate <= endDate && x.AmountAssetType.ToLower() == asset.ToLower()).ToListAsync();
 
             }
             else
             {
-                return await dbContext.CryptoUserTransactions.Where(x => x.TransactionDate >= startDate && x.TransactionDate <= endDate).ToListAsync();
+                return await dbContext.CryptoUserTransactions.Where(x => x.TransactionId == transactionId && x.TransactionDate >= startDate && x.TransactionDate <= endDate).ToListAsync();
             }
             //return transactions;
         }
 
-        public async Task<string> GetCurrentHoldings(string assetName)
+        public async Task<string> GetCurrentHoldings(string transactionId, string assetName)
         {
             using var dbContext = _dbContextFactory.CreateDbContext();
-            var transactions = await dbContext.CryptoUserTransactions.Where(x=>x.AmountAssetType == assetName.ToLower()).OrderBy(x=>x.TransactionDate).ToListAsync();
+            var transactions = await dbContext.CryptoUserTransactions.Where(x=> x.TransactionId == transactionId && x.AmountAssetType == assetName.ToLower()).OrderBy(x=>x.TransactionDate).ToListAsync();
 
             var dataPoints = new List<GraphDataPoint>();
             decimal currentXrpAmount = 0m;
@@ -1697,11 +1611,11 @@ namespace ExchangeRateManagerAPI.Services
 
         }
 
-        public async Task<List<CryptoUserTransactionProfitLossCalculation>> CalculateProfits(string assetName)
+        public async Task<List<CryptoUserTransactionProfitLossCalculation>> CalculateProfits(string transactionId, string assetName)
         {
 
             using var dbContext = _dbContextFactory.CreateDbContext();
-            var transactions = await dbContext.CryptoUserTransactions.Where(x => x.AmountAssetType == assetName.ToLower()).OrderBy(x => x.TransactionDate).ToListAsync();
+            var transactions = await dbContext.CryptoUserTransactions.Where(x => x.TransactionId == transactionId && x.AmountAssetType == assetName.ToLower()).OrderBy(x => x.TransactionDate).ToListAsync();
 
             var result = new List<CryptoUserTransactionProfitLossCalculation>();
 
@@ -1767,11 +1681,11 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
-        public async Task<CryptoUserTransactionBreakEvenCalculationResult> CalculateBreakEvenPrice(string assetName)
+        public async Task<CryptoUserTransactionBreakEvenCalculationResult> CalculateBreakEvenPrice(string transactionId, string assetName)
         {
             using var dbContext = _dbContextFactory.CreateDbContext();
             var transactions = await dbContext.CryptoUserTransactions
-                                              .Where(x => x.AmountAssetType == assetName.ToLower())
+                                              .Where(x => x.TransactionId == transactionId && x.AmountAssetType == assetName.ToLower())
                                               .OrderBy(x => x.TransactionDate)
                                               .ToListAsync();
 
@@ -1984,6 +1898,27 @@ namespace ExchangeRateManagerAPI.Services
         </script>
     </body>
     </html>";
+        }
+
+        public async Task<Dictionary<string,bool>> GetAllTransactionIds()
+        {
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            
+            var stagingResult = await dbContext.CryptoUserTransactionsStaging.Select(x => x.TransactionId).Distinct().ToListAsync();
+            var nonStagingResult = await dbContext.CryptoUserTransactions.Select(x => x.TransactionId).Distinct().ToListAsync();
+            var joinedResult = stagingResult.Concat(nonStagingResult).Distinct().ToList();
+
+            //use joinedResult to get all transactionIds and indicate true if the transactionId is both in staging and non-staging tables
+            var result = new Dictionary<string, bool>();
+            foreach (var transactionId in joinedResult)
+            {
+                result.Add(transactionId, stagingResult.Contains(transactionId) && nonStagingResult.Contains(transactionId));
+            }
+
+            return result;
+
+
+
         }
     }
 }

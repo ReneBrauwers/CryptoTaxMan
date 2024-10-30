@@ -31,14 +31,24 @@ namespace ExchangeRateManagerAPI.Controllers
             _config = config;
         }
 
+        [HttpGet("GetAllTransactionIds")]
+        public async Task<IActionResult> GetAllTransactionIds()
+        {
+            var result = await _databaseService.GetAllTransactionIds();
+            return Ok(result);
+        }
+
         [HttpPost("BulkImportTransactions")]
-        public async Task<IActionResult> BulkImportTransactions(IFormFile file)
+        public async Task<IActionResult> BulkImportTransactions(IFormFile file, [FromQuery] string transactionId = "")
         {
             if (file == null || file.Length == 0)
             {
                 return BadRequest("Upload a valid CSV file.");
             }
-
+            if (string.IsNullOrEmpty(transactionId))
+            {
+                transactionId = Guid.NewGuid().ToString();
+            }
             var transactions = new List<CryptoUserTransactionStaging>();
 
             var config = new CsvConfiguration(CultureInfo.InvariantCulture)
@@ -48,6 +58,8 @@ namespace ExchangeRateManagerAPI.Controllers
                 PrepareHeaderForMatch = args => args.Header.ToLower(),
             };
 
+            
+
             using (var reader = new StreamReader(file.OpenReadStream()))
             using (var csv = new CsvReader(reader, config))
             {
@@ -56,13 +68,13 @@ namespace ExchangeRateManagerAPI.Controllers
             }
 
             // Process your transactions here
-            var result = await _databaseService.InsertCryptoUserTransactionsStaging(transactions);
+            var result = await _databaseService.InsertCryptoUserTransactionsStaging(transactionId, transactions);
             if(result.error)
             {
                 return BadRequest(new { Error = result.message});
             }
             // For this example, we're just returning the count of transactions
-            return Ok(new { Message = $"{result.records} {result.message}" });
+            return Ok(new { Message = $"{result.records} {result.message}", TransactionId = transactionId });
         }
 
         [HttpPost("BulkImportTradingPairInformation")]
@@ -101,7 +113,7 @@ namespace ExchangeRateManagerAPI.Controllers
             var taskId = _databaseService.StartProcessCryptoUserTransactionsStagingTask(async () =>
             {
                 // Adjust to call the new method for executing sequential API calls
-                return await _databaseService.ProcessCryptoUserTransactionsStaging(req.baseCurrency);
+                return await _databaseService.ProcessCryptoUserTransactionsStaging(req.transactionId, req.baseCurrency);
             });
 
             var checkUrl = Url.Action(nameof(CheckProcessCryptoUserTransactionsStagingTask), new { taskId });
@@ -141,7 +153,7 @@ namespace ExchangeRateManagerAPI.Controllers
         {
             try
             {
-                var result = await _databaseService.GetIncomeTaxReportDetails(req.taxYear);
+                var result = await _databaseService.GetIncomeTaxReportDetails(req.transactionId,req.taxYear);
 
                 //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
@@ -166,7 +178,7 @@ namespace ExchangeRateManagerAPI.Controllers
         {
             try
             {
-                var result = await _databaseService.GetIncomeTaxReportSummary(req.taxYear);
+                var result = await _databaseService.GetIncomeTaxReportSummary(req.transactionId, req.taxYear);
 
                 //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
@@ -194,7 +206,7 @@ namespace ExchangeRateManagerAPI.Controllers
             
             try
             {
-                var result = await _databaseService.GetTaxReportDetails(req.taxYear);//, req.capitalGainTaxPercentage);
+                var result = await _databaseService.GetTaxReportDetails(req.transactionId,req.taxYear);//, req.capitalGainTaxPercentage);
 
                 //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
@@ -202,7 +214,7 @@ namespace ExchangeRateManagerAPI.Controllers
                     var engine = new FileHelperEngine<TaxReportDetail>();
                     engine.HeaderText = engine.GetFileHeader();
                     var outputString = engine.WriteString(result); // flattenedRecords);
-                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "TaxReportDetails.csv");
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", $"TaxReportDetails-{req.transactionId}.csv");
 
                 }
 
@@ -223,14 +235,14 @@ namespace ExchangeRateManagerAPI.Controllers
             try
             {
 
-                var result = await _databaseService.GetTaxReportSummary(req.taxYear);//, req.capitalGainTaxPercentage);
+                var result = await _databaseService.GetTaxReportSummary(req.transactionId, req.taxYear);//, req.capitalGainTaxPercentage);
                 //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
                 {
                     var engine = new FileHelperEngine<TaxReportSummary>();
                     engine.HeaderText = engine.GetFileHeader();
                     var outputString = engine.WriteString(result); // flattenedRecords);
-                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "TaxReportSummary.csv");
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", $"TaxReportSummary_{req.transactionId}.csv");
                     
                 }
 
@@ -262,7 +274,7 @@ namespace ExchangeRateManagerAPI.Controllers
 
             try
             {
-                var result = await _databaseService.GetCryptoUserTransactions(startDate, endDate, req.asset);
+                var result = await _databaseService.GetCryptoUserTransactions(startDate, endDate, req.transactionId,req.asset);
 
                 //given the result, calculate the saldo remaining for each transaction for a given asset. When the transaction is a buy, the saldo is increased, when the transaction is a sell, the saldo is decreased.
                 foreach (var groupedUserTransactions in result.GroupBy(x=>x.AmountAssetType))
@@ -303,17 +315,22 @@ namespace ExchangeRateManagerAPI.Controllers
             }
         }
 
-        [HttpGet("GetCurrentHoldings/{assetName}")]
-        public async Task<IActionResult> GetCurrentHoldings([FromRoute] string assetName)
+        [HttpGet("GetCurrentHoldings/{assetName}/{transactionId}")]
+        public async Task<IActionResult> GetCurrentHoldings([FromRoute] string assetName, [FromRoute] string transactionId)
         {
             if(string.IsNullOrWhiteSpace(assetName))
             {
                 return BadRequest("Invalid asset name. Please provide a valid asset name.");
             }
 
+            if (string.IsNullOrWhiteSpace(transactionId))
+            {
+                return BadRequest("Invalid transaction id. Please provide a valid transaction id.");
+            }
+
             try
             {
-                var result = await _databaseService.GetCurrentHoldings(assetName);
+                var result = await _databaseService.GetCurrentHoldings(transactionId, assetName);
                 return Content(result, "text/html");
                  
             }
@@ -323,17 +340,22 @@ namespace ExchangeRateManagerAPI.Controllers
             }
         }
 
-        [HttpGet("GetProfitsReport/{assetName}")]
-        public async Task<IActionResult> GetProfitsReport([FromRoute] string assetName)
+        [HttpGet("GetProfitsReport/{assetName}/{transactionId}")]
+        public async Task<IActionResult> GetProfitsReport([FromRoute] string assetName, [FromRoute] string transactionId)
         {
             if (string.IsNullOrWhiteSpace(assetName))
             {
                 return BadRequest("Invalid asset name. Please provide a valid asset name.");
             }
 
+            if (string.IsNullOrWhiteSpace(transactionId))
+            {
+                return BadRequest("Invalid transaction id. Please provide a valid transaction id.");
+            }
+
             try
             {
-                var result = await _databaseService.CalculateProfits(assetName);
+                var result = await _databaseService.CalculateProfits(transactionId, assetName);
                 return Ok(result);
 
             }
@@ -343,17 +365,22 @@ namespace ExchangeRateManagerAPI.Controllers
             }
         }
 
-        [HttpGet("GetBreakEvenPoint/{assetName}")]
-        public async Task<IActionResult> GetBreakEvenPoint([FromRoute] string assetName)
+        [HttpGet("GetBreakEvenPoint/{assetName}/{transactionId}")]
+        public async Task<IActionResult> GetBreakEvenPoint([FromRoute] string assetName, [FromRoute] string transactionId)
         {
             if (string.IsNullOrWhiteSpace(assetName))
             {
                 return BadRequest("Invalid asset name. Please provide a valid asset name.");
             }
 
+            if (string.IsNullOrWhiteSpace(transactionId))
+            {
+                return BadRequest("Invalid transaction id. Please provide a valid transaction id.");
+            }
+
             try
             {
-                var result = await _databaseService.CalculateBreakEvenPrice(assetName);
+                var result = await _databaseService.CalculateBreakEvenPrice(transactionId, assetName);
                 return Ok(result);
 
             }

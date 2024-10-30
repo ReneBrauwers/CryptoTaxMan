@@ -5,7 +5,7 @@ namespace Shared.Models
 {
     public class CryptoUserTransactionStaging
     {
-      //  public string TransactionId { get; set; }
+        public string TransactionId { get; set; }
         public int Sequence { get; set; }
         public DateTime? TransactionDate { get; set; }
         [JsonConverter(typeof(JsonStringEnumConverter))]

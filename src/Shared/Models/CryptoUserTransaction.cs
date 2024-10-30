@@ -7,7 +7,7 @@ namespace Shared.Models
     [DelimitedRecord(",")]
     public class CryptoUserTransaction
     {
-       // public string TransactionId { get; set; }
+        public string TransactionId { get; set; }
         public int Sequence { get; set; }
         [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")]
         

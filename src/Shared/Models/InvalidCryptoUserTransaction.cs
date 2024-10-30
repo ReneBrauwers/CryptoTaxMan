@@ -16,6 +16,7 @@ namespace Shared.Models
 
     public class TransactionReferenceTrail
     {
+        public string TransactionId { get; set; }
         public int Sequence { get; set; }
         [FieldConverter(ConverterKind.Date, "yyyy-MM-dd")]
         public DateTime? TransactionDate { get; set; }   
