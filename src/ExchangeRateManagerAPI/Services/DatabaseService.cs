@@ -1337,7 +1337,7 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
-        public async Task<List<TaxReportSummary>> GetTaxReportSummaryOld(int taxYear = 0, decimal capitalGainTaxPercentage = 30m)
+        public async Task<List<TaxReportSummary>> GetTaxReportSummaryOld(int taxYear = 0)//, decimal capitalGainTaxPercentage = 30m)
         {
             List<TaxReportDetail> taxReports = await GetTaxReportDetails();
 
@@ -1366,9 +1366,9 @@ namespace ExchangeRateManagerAPI.Services
 
         }
 
-        public async Task<List<TaxReportSummary>> GetTaxReportSummary(int taxYear = 0, decimal capitalGainTaxPercentage = 30m)
+        public async Task<List<TaxReportSummary>> GetTaxReportSummary(int taxYear = 0)//, decimal capitalGainTaxPercentage = 30m)
         {
-            List<TaxReportDetail> taxReports = await GetTaxReportDetails(taxYear, capitalGainTaxPercentage);
+            List<TaxReportDetail> taxReports = await GetTaxReportDetails(taxYear);//, capitalGainTaxPercentage);
 
             var tasks = taxReports
                 .GroupBy(r => r.TaxYear)
@@ -1394,7 +1394,7 @@ namespace ExchangeRateManagerAPI.Services
         }
 
 
-        public async Task<List<TaxReportDetail>> GetTaxReportDetails(int taxYear = 0, decimal capitalGainTaxPercentage = 30m)
+        public async Task<List<TaxReportDetail>> GetTaxReportDetails(int taxYear = 0) //, decimal capitalGainTaxPercentage = 30m)
         {
             using var dbContext = _dbContextFactory.CreateDbContext();
             var transactions = await dbContext.CryptoUserTransactions.ToListAsync();
@@ -1546,11 +1546,81 @@ namespace ExchangeRateManagerAPI.Services
 
             }
 
-            return result;
+            if(taxYear == 0)
+            {
+                return result;
+            }
+            else
+            {
+                return result.Where(x => x.TaxYear == taxYear).ToList();
+            }
+
+            
 
 
         }
 
+        public async Task<List<IncomeTaxReportDetails>> GetIncomeTaxReportDetails(int taxYear = 0)
+        {
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var IncomeTransactions = await dbContext.CryptoUserTransactions.Where(x=>x.ReportableAsIncome == true).ToListAsync();
+
+           List<IncomeTaxReportDetails> incomeTaxReportDetails = new List<IncomeTaxReportDetails>();
+
+            //map to IncomeTaxReportDetails
+            foreach (var incomeTransaction in IncomeTransactions)
+            {
+                IncomeTaxReportDetails incomeTaxReportDetail = new IncomeTaxReportDetails();
+                incomeTaxReportDetail.Asset = incomeTransaction.AmountAssetType;
+                incomeTaxReportDetail.IncomeValue = (incomeTransaction.Amount * incomeTransaction.ExchangeRateValue ?? 0);
+                incomeTaxReportDetail.Amount = incomeTransaction.Amount;
+                incomeTaxReportDetail.Currency = incomeTransaction?.ExchangeRateCurrency?.ToLower();
+                incomeTaxReportDetail.IncomeRegistrationDate = incomeTransaction.TransactionDate;
+                incomeTaxReportDetail.TaxYear = GetAustralianTaxYear(incomeTransaction.TransactionDate);
+                incomeTaxReportDetail.Comments = (incomeTaxReportDetail.IncomeValue > 0 ? string.Empty : "No exchange rate available from CEX on transaction date");
+                incomeTaxReportDetails.Add(incomeTaxReportDetail);
+            }
+
+            if(taxYear == 0)
+            {
+                return incomeTaxReportDetails.OrderBy(x => x.TaxYear).ToList();
+            }
+            else
+            {
+                return incomeTaxReportDetails.Where(x => x.TaxYear == taxYear).OrderBy(x => x.TaxYear).ToList();
+            }
+
+            
+        }
+
+        public async Task<List<IncomeTaxReportSummary>> GetIncomeTaxReportSummary(int taxYear = 0)
+        {
+
+            using var dbContext = _dbContextFactory.CreateDbContext();
+            var IncomeTransactions = await dbContext.CryptoUserTransactions.Where(x => x.ReportableAsIncome == true).ToListAsync();
+
+            List<IncomeTaxReportDetails> incomeTaxReportDetails = await GetIncomeTaxReportDetails(taxYear);
+
+            //map to IncomeTaxReportDetails
+            var summary = incomeTaxReportDetails
+                .GroupBy(r => (r.TaxYear))
+                .Select(g => new IncomeTaxReportSummary
+                {
+                    TaxYear = g.Key,
+                    TotalAdditionalIncome = g.Sum(r => r.IncomeValue),
+                    Currency = g.First().Currency
+                })
+                .ToList();
+
+            if (taxYear == 0)
+            {
+                return summary.OrderBy(x => x.TaxYear).ToList();
+            }
+            else
+            {
+                return summary.Where(x => x.TaxYear == taxYear).ToList();
+            }
+        }
 
         public async Task<decimal> GetReportableIncome(int taxYear)
         {

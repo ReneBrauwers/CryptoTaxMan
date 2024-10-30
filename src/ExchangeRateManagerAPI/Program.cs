@@ -26,12 +26,13 @@ namespace ExchangeRateManagerAPI
     options.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"), ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection"))));
 
             builder.Services.AddHttpClient<ISologenic, SologenicService>().SetHandlerLifetime(TimeSpan.FromMinutes(5));
-           // builder.Services.AddHttpClient<IYahooFinance, YahooFinanceService>().SetHandlerLifetime(TimeSpan.FromMinutes(5));
+            builder.Services.AddHttpClient<ILiveCoinWatch, ILiveCoinWatch>().SetHandlerLifetime(TimeSpan.FromMinutes(5));
             builder.Services.AddHttpClient<ICoinGecko, CoinGeckoService>().SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
             builder.Services.AddSingleton<IYahooFinanceScaper, YahooFinanceScraperService>();
             builder.Services.AddSingleton<ICoinGecko, CoinGeckoService>();
             builder.Services.AddSingleton<ISologenic, SologenicService>();
+            builder.Services.AddSingleton<ILiveCoinWatch, LiveCoinWatchService>();
 
             builder.Services.AddSingleton<ExchangeRateCrawlerService>();
             builder.Services.AddSingleton<DatabaseAdminService>();            

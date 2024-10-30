@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Models;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Runtime.InteropServices;
+using Shared.Enums;
 
 namespace ExchangeRateManagerAPI.Services
 {
@@ -17,17 +18,19 @@ namespace ExchangeRateManagerAPI.Services
         private readonly ISologenic _sologenicService;
         private readonly IYahooFinanceScaper _yahooFinanceScraperService;
         private readonly ICoinGecko _coinGeckoService;
+        private readonly ILiveCoinWatch _liveCoinWatchService;
         private readonly IDbContextFactory<CryptoTaxManDbContext> _dbContextFactory;
         private IConfiguration _configuration { get; }
         public string StatusMessage = string.Empty;
 
-        public ExchangeRateCrawlerService(ILogger<ExchangeRateCrawlerService> logger, IConfiguration config, ISologenic sologenic, IYahooFinanceScaper yahooFinanceScraper, ICoinGecko coinGecko, IDbContextFactory<CryptoTaxManDbContext> dbContextFactory)
+        public ExchangeRateCrawlerService(ILogger<ExchangeRateCrawlerService> logger, IConfiguration config, ISologenic sologenic, IYahooFinanceScaper yahooFinanceScraper, ICoinGecko coinGecko, ILiveCoinWatch liveCoinWatch, IDbContextFactory<CryptoTaxManDbContext> dbContextFactory)
         {
             _logger = logger;
             _configuration = config;
             _sologenicService = sologenic;
             _yahooFinanceScraperService = yahooFinanceScraper;
             _coinGeckoService = coinGecko;
+            _liveCoinWatchService = liveCoinWatch;
             _dbContextFactory = dbContextFactory;
         }
 
@@ -200,7 +203,7 @@ namespace ExchangeRateManagerAPI.Services
             return (false, -1, null);
         }
 
-        public async Task<ExchangeRateSynchronisationResult> ExecuteSequentialApiCalls(string datefromstring = "20200101", string format = "yyyyMMdd")
+        public async Task<ExchangeRateSynchronisationResult> ExecuteSequentialApiCalls(string datefromstring = "20200101", string format = "yyyyMMdd", SupportedExchanges supportedExchanges = SupportedExchanges.All)
         {
             string[] formats = { format };
             DateTime.TryParseExact(datefromstring, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var datefrom);
@@ -210,8 +213,27 @@ namespace ExchangeRateManagerAPI.Services
             //fill ExhangeInformtion with data from database table TradingPairInformation
             using var dbContext = _dbContextFactory.CreateDbContext();
             var tradingPairs = dbContext.TradingPairInformation.ToList();
+
+            //filter out the exchanges that are not supported
+            if (supportedExchanges != SupportedExchanges.All)
+            {
+                tradingPairs = tradingPairs.Where(x => Enum.TryParse<SupportedExchanges>(x.ExchangeName, true, out SupportedExchanges exchange) && exchange == supportedExchanges).ToList();
+            }
+
             foreach (var tradingPair in tradingPairs.Where(x=>x.IsActive))
             {
+
+                //if(supportedExchanges != SupportedExchanges.All)
+                //{
+                //    //filter out the exchanges that are not supported
+                //    if (Enum.TryParse<SupportedExchanges>(tradingPair.ExchangeName, true, out SupportedExchanges exchange))
+                //    {
+                //        if (exchange != supportedExchanges)
+                //        {
+                //            continue;
+                //        }
+                //    }
+                //}
 
                 var info = new ExchangeInformation
                 {
@@ -268,6 +290,62 @@ namespace ExchangeRateManagerAPI.Services
                         StatusMessage = $"Retrieving {exchangeInfo.ExchangeName} rates from {exchangeInfo.LastExchangeRateEntryDate?.ToString("yyyy-dd-MM")}";
                         switch (exchangeInfo.ExchangeName?.ToLower())
                         {
+                            case "livecoinwatch":
+                                {
+                                    //init
+                                    List<ExchangeRate> response = null;
+                                    try
+                                    {
+                                        response = await _liveCoinWatchService.GetCryptoDataRange(exchangeInfo, exchangeInfo.LastExchangeRateEntryDate ?? datefrom);
+                                        
+                                    }
+                                    catch (NotSupportedException ex)
+                                    {
+                                        //deactivate the pair
+                                        var tradingPair = dbContext.TradingPairInformation.FirstOrDefault(x => x.Symbol == exchangeInfo.Symbol && x.ExchangeCurrency == exchangeInfo.ExchangeCurrency && x.ExchangeName == exchangeInfo.ExchangeName);
+                                        if (tradingPair is not null)
+                                        {
+                                            tradingPair.IsActive = true;
+                                            tradingPair.SyncError = true;
+                                            tradingPair.LastSyncStatus = ex.Message;
+                                            tradingPair.SyncedOn = DateTime.UtcNow;
+                                            dbContext.SaveChanges();
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError($"Error occurred while retrieving data from LiveCoinWatch: {ex.Message}");
+                                    }
+                                    if (response is not null && response.Any())
+                                    {
+                                        var recordCount = await AddExchangeRates(response);
+
+                                        if (results.Added == null)
+                                        {
+                                            results.Added = new Dictionary<string, (DateTime from, DateTime to, int records)>();
+                                        }
+
+                                        var responseFromDate = response.Min(x => x.Date);
+                                        var responseToDate = response.Max(x => x.Date);
+
+
+
+                                        if (results.Added.ContainsKey(exchangeInfo.ExchangeName?.ToLower()))
+                                        {
+                                            var existingValue = results.Added[exchangeInfo.ExchangeName?.ToLower()];
+                                            results.Added[exchangeInfo.ExchangeName?.ToLower()] = (existingValue.from, responseToDate, existingValue.records + recordCount);
+                                        }
+                                        else
+                                        {
+                                            results.Added.Add(exchangeInfo.ExchangeName?.ToLower(), (responseFromDate, responseToDate, recordCount));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        AddRetrievalFailure(results, exchangeInfo, datefrom, response);
+                                    }
+                                    break;
+                                }
                             case "coingecko":
                                 {
                                     //init
@@ -443,19 +521,19 @@ namespace ExchangeRateManagerAPI.Services
                 }
 
                 //iterate over results and update the tradingpairinformation table with lastExchangeRateEntryDate
-                foreach (var result in results.Added)
-                {
-                    var exchangeInfo = exchangeInformation.FirstOrDefault(x => x.ExchangeName.ToLower() == result.Key);
-                    if (exchangeInfo is not null)
-                    {
-                        var tradingPair = dbContext.TradingPairInformation.FirstOrDefault(x => x.Symbol == exchangeInfo.Symbol && x.ExchangeCurrency == exchangeInfo.ExchangeCurrency);
-                        if (tradingPair is not null)
-                        {
-                            tradingPair.LastExchangeRateEntryDate = result.Value.to;
-                            dbContext.SaveChanges();
-                        }
-                    }
-                }
+                //foreach (var result in results.Added)
+                //{
+                //    var exchangeInfo = exchangeInformation.FirstOrDefault(x => x.ExchangeName.ToLower() == result.Key);
+                //    if (exchangeInfo is not null)
+                //    {
+                //        var tradingPair = dbContext.TradingPairInformation.FirstOrDefault(x => x.Symbol == exchangeInfo.Symbol && x.ExchangeCurrency == exchangeInfo.ExchangeCurrency);
+                //        if (tradingPair is not null)
+                //        {
+                //            tradingPair.LastExchangeRateEntryDate = result.Value.to;
+                //            dbContext.SaveChanges();
+                //        }
+                //    }
+                //}
 
                 return results;
             }
@@ -1016,7 +1094,29 @@ namespace ExchangeRateManagerAPI.Services
                     await dbContext.AddRangeAsync(newExchangeRates);
                     recordsAdded = dbContext.SaveChanges();
                 }
+
+                //update sync status
+                if (recordsAdded > 0)
+                {
+
+                    //get the max date in the exchange rate table for the specific trading pair
+                    var lastExchangeRateDate = dbContext.ExchangeRates
+                        .Where(x => x.Symbol == exchangeRates.FirstOrDefault().Symbol && x.ExchangeCurrency == exchangeRates.FirstOrDefault().ExchangeCurrency)
+                        .Max(x => (DateTime?)x.Date);
+
+
+                    var tradingPair = dbContext.TradingPairInformation.FirstOrDefault(x => x.Symbol == exchangeRates.FirstOrDefault().Symbol && x.ExchangeCurrency == exchangeRates.FirstOrDefault().ExchangeCurrency);
+                    if (tradingPair is not null)
+                    {
+                        tradingPair.SyncedOn = DateTime.UtcNow;
+                        tradingPair.LastExchangeRateEntryDate = lastExchangeRateDate;
+                        tradingPair.LastSyncStatus = $"Synced {recordsAdded} records";
+                        dbContext.SaveChanges();
+                    }
+                }
             }
+
+            
 
             return recordsAdded;
         }

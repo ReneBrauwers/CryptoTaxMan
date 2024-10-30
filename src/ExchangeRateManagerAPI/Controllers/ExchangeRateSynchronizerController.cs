@@ -1,6 +1,7 @@
 using ExchangeRateManagerAPI.Model;
 using ExchangeRateManagerAPI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Enums;
 using System.Globalization;
 
 namespace ExchangeRateManagerAPI.Controllers
@@ -30,14 +31,27 @@ namespace ExchangeRateManagerAPI.Controllers
                 return BadRequest("Invalid date format. Please use yyyyMMdd");
             }
 
-            var taskId = _syncService.StartExchangeRateSynchronisationTask(async () =>
-            {
-                // Adjust to call the new method for executing sequential API calls
-                return await _syncService.ExecuteSequentialApiCalls();
-            });
 
-            var checkUrl = Url.Action(nameof(CheckSynchronisationTask), new { taskId });
-            return Accepted(checkUrl);
+            if(Enum.TryParse<SupportedExchanges>(req.exchangeSupported, false, out SupportedExchanges supportedExchange))
+            {
+                var taskId = _syncService.StartExchangeRateSynchronisationTask(async () =>
+                {
+
+                    // Adjust to call the new method for executing sequential API calls
+                    return await _syncService.ExecuteSequentialApiCalls(supportedExchanges: supportedExchange);
+                });
+
+                var checkUrl = Url.Action(nameof(CheckSynchronisationTask), new { taskId });
+                return Accepted(checkUrl);
+            }
+            else
+            {
+                return BadRequest("Invalid exchange supported. Please use one of the following: All, CoinGecko, CoinMarketCap, LiveCoinWatch");
+            }
+
+
+
+
         }
 
         [HttpGet("SynchronisationStatus/{taskId}")]

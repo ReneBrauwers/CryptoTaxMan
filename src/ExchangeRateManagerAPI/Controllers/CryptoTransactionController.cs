@@ -136,6 +136,57 @@ namespace ExchangeRateManagerAPI.Controllers
            
         }
 
+        [HttpPost("GetIncomeTaxReportDetails")]
+        public async Task<IActionResult> GetIncomeTaxReportDetails(IncomeTaxReportRequest req)
+        {
+            try
+            {
+                var result = await _databaseService.GetIncomeTaxReportDetails(req.taxYear);
+
+                //if req.formatAsCSV is true, return the result as a CSV file
+                if (req.formatAsCSV)
+                {
+                    var engine = new FileHelperEngine<IncomeTaxReportDetails>();
+                    engine.HeaderText = engine.GetFileHeader();
+                    var outputString = engine.WriteString(result); // flattenedRecords);
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "IncomeTaxReportDetails.csv");
+
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        [HttpPost("GetIncomeTaxReportSummary")]
+        public async Task<IActionResult> GetIncomeTaxReportSummary(IncomeTaxReportRequest req)
+        {
+            try
+            {
+                var result = await _databaseService.GetIncomeTaxReportSummary(req.taxYear);
+
+                //if req.formatAsCSV is true, return the result as a CSV file
+                if (req.formatAsCSV)
+                {
+                    var engine = new FileHelperEngine<IncomeTaxReportSummary>();
+                    engine.HeaderText = engine.GetFileHeader();
+                    var outputString = engine.WriteString(result); // flattenedRecords);
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "IncomeTaxReportSummary.csv");
+
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+
         [HttpPost("GetTaxReportDetails")]
         public async Task<IActionResult> GetTaxReportDetails(TaxSummaryReportRequest req)
         {
@@ -143,7 +194,7 @@ namespace ExchangeRateManagerAPI.Controllers
             
             try
             {
-                var result = await _databaseService.GetTaxReportDetails(req.taxYear, req.capitalGainTaxPercentage);
+                var result = await _databaseService.GetTaxReportDetails(req.taxYear);//, req.capitalGainTaxPercentage);
 
                 //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
@@ -171,8 +222,8 @@ namespace ExchangeRateManagerAPI.Controllers
         {
             try
             {
-                
-                var result = await _databaseService.GetTaxReportSummary(req.taxYear, req.capitalGainTaxPercentage);
+
+                var result = await _databaseService.GetTaxReportSummary(req.taxYear);//, req.capitalGainTaxPercentage);
                 //if req.formatAsCSV is true, return the result as a CSV file
                 if (req.formatAsCSV)
                 {
