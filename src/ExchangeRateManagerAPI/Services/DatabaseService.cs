@@ -1549,9 +1549,21 @@ namespace ExchangeRateManagerAPI.Services
             return total ?? 0m;
         }
 
-        public async Task<List<CryptoUserTransaction>> GetCryptoUserTransactions(DateTime startDate, DateTime endDate,string transactionId, string? asset)
+        public async Task<List<CryptoUserTransaction>> GetCryptoUserTransactions(DateTime? startDate, DateTime? endDate,string transactionId, string? asset)
         {
             using var dbContext = _dbContextFactory.CreateDbContext();
+            if(startDate is null && endDate is null)
+            {
+                if (string.IsNullOrEmpty(asset))
+                {
+                    return await dbContext.CryptoUserTransactions.Where(x => x.TransactionId == transactionId).ToListAsync();
+                }
+                else
+                {
+                    return await dbContext.CryptoUserTransactions.Where(x => x.TransactionId == transactionId && x.AmountAssetType.ToLower() == asset.ToLower()).ToListAsync(); 
+                }
+
+            }
             //if asset is provided, filter by asset
             if (!string.IsNullOrWhiteSpace(asset))
             {

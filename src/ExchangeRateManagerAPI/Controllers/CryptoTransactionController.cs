@@ -315,6 +315,55 @@ namespace ExchangeRateManagerAPI.Controllers
             }
         }
 
+        [HttpGet("GetCryptoUserTransactions/{transactionId}")]
+        public async Task<IActionResult> GetCryptoUserTransactions([FromRoute] string transactionId, [FromQuery] string? assetName)
+        {
+            try
+            {
+                var result = await _databaseService.GetCryptoUserTransactions(null, null, transactionId, assetName);
+
+                //given the result, calculate the saldo remaining for each transaction for a given asset. When the transaction is a buy, the saldo is increased, when the transaction is a sell, the saldo is decreased.
+                foreach (var groupedUserTransactions in result.GroupBy(x => x.AmountAssetType))
+                {
+                    decimal saldo = 0;
+                    foreach (var item in groupedUserTransactions.OrderBy(x => x.TransactionDate))
+                    {
+                        if (item.TransactionType == Shared.Enums.TransactionEventType.buy)
+                        {
+                            saldo += item.Amount;
+                        }
+                        else if (item.TransactionType == Shared.Enums.TransactionEventType.sell)
+                        {
+                            saldo -= item.Amount;
+                        }
+
+                        item.InternalNotes = $"{saldo.ToString()} {groupedUserTransactions.Key} remaining";
+                    }
+
+                }
+
+                //if Accept header is application/json, return the result as a JSON file otherwise return the result as a CSV file
+                if (Request.Headers["Accept"] == "application/json")
+                {
+                    return Ok(result);
+                }
+                else
+                {
+                    var engine = new FileHelperEngine<CryptoUserTransaction>();
+                    engine.HeaderText = engine.GetFileHeader();
+                    var outputString = engine.WriteString(result); // flattenedRecords);
+                    return File(Encoding.UTF8.GetBytes(outputString.ToString()), "text/csv", "CryptoUserTransactions.csv");
+                }
+
+               
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+
         [HttpGet("GetCurrentHoldings/{assetName}/{transactionId}")]
         public async Task<IActionResult> GetCurrentHoldings([FromRoute] string assetName, [FromRoute] string transactionId)
         {
